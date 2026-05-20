@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import { MapPin, Link as LinkIcon } from "lucide-react";
 import MCQCard from "../Sidebar/MCQCard";
 
 const ChatWindow = ({ 
@@ -9,7 +10,8 @@ const ChatWindow = ({
   onLoadMore, 
   weakTopics, 
   onRetryTopic,
-  onScoreUpdate
+  onScoreUpdate,
+  onCitationClick
 }) => {
   const scrollRef = useRef(null);
 
@@ -24,32 +26,10 @@ const ChatWindow = ({
       ref={scrollRef}
       className="flex-1 overflow-y-auto px-6 md:px-20 pt-10 no-scrollbar bg-[#0B0F1A]"
     >
-      {/* ── WELCOME STATE ── */}
-      {chatHistory.length === 0 && flashcards.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-          <div className="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse border border-cyan-500/20">
-            <span className="text-2xl">🧠</span>
-          </div>
-          <h2 className="text-xl font-black text-slate-100 uppercase tracking-[0.2em] mb-2">
-            Second Brain Active
-          </h2>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-            {currentMode === 'test' ? 'Type /start [filename] to begin your assessment' : 'What are we learning today?'}
-          </p>
-          {currentMode === 'test' && (
-            <div className="mt-6 text-[10px] text-slate-600 font-bold uppercase tracking-wider space-y-1">
-              <p>💡 <span className="text-purple-400">/start [filename]</span> — begin assessment</p>
-              <p>💡 <span className="text-purple-400">/10</span> — generate more questions</p>
-              <p>💡 <span className="text-purple-400">/weak</span> — practice weak areas</p>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── CHAT MESSAGES ── */}
       {/* In test mode: only show test-session messages (hide study chat clutter).
           Study chat is visually present but MCQ interface dominates below. */}
-      <div className="space-y-6 pb-6">
+      <div className="w-full max-w-4xl mx-auto space-y-6 pb-6">
         {chatHistory.map((chat, index) => (
           <div
             key={index}
@@ -69,12 +49,23 @@ const ChatWindow = ({
 
                 {/* Citations / Sources */}
                 {chat.sources && chat.sources.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-slate-800 flex flex-wrap gap-2">
-                    {chat.sources.map((source, sIdx) => (
-                      <span key={sIdx} className="text-[9px] bg-black/30 px-2 py-1 rounded text-cyan-500 font-bold uppercase tracking-tighter">
-                        📍 {source}
-                      </span>
-                    ))}
+                  <div className="mt-4 pt-4 border-t border-slate-800 relative group w-fit">
+                    <button
+                      onClick={() => onCitationClick && onCitationClick(chat.sources[0])}
+                      className="flex items-center gap-1.5 text-[10px] bg-black/30 px-3 py-1.5 rounded-lg text-cyan-500 font-bold uppercase tracking-widest hover:bg-cyan-500/10 transition-colors"
+                    >
+                      <LinkIcon size={12} />
+                      <span>+{chat.sources.length}</span>
+                    </button>
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-max max-w-xs p-3 bg-[#0F172A] border border-slate-700/60 rounded-xl shadow-2xl z-50 text-[10px] text-slate-300 normal-case tracking-normal">
+                      <p className="font-bold text-slate-500 mb-2 uppercase tracking-widest text-[8px]">References</p>
+                      <ul className="space-y-1.5">
+                        {chat.sources.map((src, i) => (
+                          <li key={i} className="truncate">• {src}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 )}
               </div>
@@ -110,7 +101,7 @@ const ChatWindow = ({
 
       {/* ── LOADING INDICATOR ── */}
       {loading && (
-        <div className="flex justify-start py-4">
+        <div className="w-full max-w-4xl mx-auto flex justify-start py-4">
           <div className="bg-slate-900/30 border border-slate-800/50 px-5 py-3 rounded-2xl flex items-center gap-3">
             <div className="flex gap-1">
               <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce"></div>

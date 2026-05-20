@@ -1,11 +1,11 @@
 import React, { useState } from "react";
+import { Brain } from "lucide-react";
 import Navbar from "../components/Navbar/Navbar";
 import Sidebar from "../components/Sidebar/Sidebar";
 import FileChip from "../components/Navbar/FileChip";
 import ChatWindow from "../components/Chat/ChatWindow";
 import ChatInput from "../components/Chat/ChatInput";
 import AuthModal from "../components/Navbar/AuthModal";
-import ReminderBox from "../components/Chat/ReminderBox";
 import { useAuth } from "../context/AuthContext";
 import { useChat } from "../context/ChatContext";
 import api from "../api/axiosConfig";
@@ -24,7 +24,6 @@ const Dashboard = () => {
     weakTopics, setWeakTopics,
     loading, setLoading,
     uploading, setUploading,
-    showReminder, dismissReminder,
     saveCurrentSession,
     loadSession,
     startNewChat,
@@ -37,6 +36,7 @@ const Dashboard = () => {
   const [currentMode, setMode] = useState('study');
   const [toast, setToast] = useState(null);
   const [activeFile, setActiveFile] = useState(null);
+  const [viewingPdfName, setViewingPdfName] = useState(null);
 
   const showToast = (type, message, duration = 3500) => {
     setToast({ type, message });
@@ -225,10 +225,10 @@ const Dashboard = () => {
     success: 'bg-green-500/20 border-green-500/40 text-green-300',
   };
 
-  return (
-    <div className="h-screen w-screen bg-[#0B0F1A] text-slate-200 flex flex-col overflow-hidden font-sans">
-      <Navbar user={user} onLoginClick={() => setIsAuthModalOpen(true)} onLogout={logout} />
+  const isEmpty = chatHistory.length === 0 && flashcards.length === 0;
 
+  return (
+    <div className="h-screen w-screen bg-[#0B0F1A] text-slate-200 flex overflow-hidden font-sans">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-2xl border text-[12px] font-bold uppercase tracking-wider shadow-2xl backdrop-blur-sm ${toastBg[toast.type]}`}>
@@ -236,30 +236,58 @@ const Dashboard = () => {
         </div>
       )}
 
-      <main className="flex-1 flex overflow-hidden">
-        <Sidebar
-          chatSessions={chatSessions}
-          activeSessionId={activeSessionId}
-          onSelectSession={loadSession}
-          onNewChat={startNewChat}
-          onRename={handleRename}
-          onDelete={handleDelete}
-          onShare={handleShare}
-        />
+      {/* Sidebar on the far left */}
+      <Sidebar
+        chatSessions={chatSessions}
+        activeSessionId={activeSessionId}
+        onSelectSession={loadSession}
+        onNewChat={startNewChat}
+        onRename={handleRename}
+        onDelete={handleDelete}
+        onShare={handleShare}
+        weakTopics={weakTopics}
+        onRetryTopic={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
+      />
 
-        <div className="flex-1 flex flex-col bg-[#0B0F1A] overflow-hidden">
+      {/* Main Content Area */}
+      <div className={`flex flex-col bg-[#0B0F1A] overflow-hidden relative transition-all ${viewingPdfName ? 'w-1/2 border-r border-slate-800/50' : 'flex-1'}`}>
+        <Navbar user={user} onLoginClick={() => setIsAuthModalOpen(true)} onLogout={logout} />
 
-          {/* Reminder box — shown only once per login, inside chat area at top */}
-          {showReminder && (
-            <ReminderBox
-              weakTopics={weakTopics}
-              onRetry={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
-              onDismiss={dismissReminder}
-              isAuth={!!user}
-            />
-          )}
-
-          {/* Chat messages + MCQs */}
+        {isEmpty ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 pb-20">
+            <div className="mb-8 text-center animate-fade-in-up">
+              <div className="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center mb-6 mx-auto animate-pulse border border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-cyan-400">
+                <Brain size={32} />
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black text-slate-100 uppercase tracking-[0.2em] mb-3">
+                How can I help you today?
+              </h2>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                Upload a document or ask a question to start.
+              </p>
+            </div>
+            
+            <div className="w-full max-w-3xl animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+              <ChatInput
+                question={question}
+                setQuestion={setQuestion}
+                handleAsk={() => handleAsk(false)}
+                currentMode={currentMode}
+                setMode={handleModeSwitch}
+                loading={loading}
+                user={user}
+                uploading={uploading}
+                onFileUpload={handleUpload}
+                onAuthRequired={() => {
+                  setIsAuthModalOpen(true);
+                  showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Chat messages + MCQs */}
           <ChatWindow
             chatHistory={chatHistory}
             loading={loading}
@@ -270,6 +298,7 @@ const Dashboard = () => {
             weakTopics={weakTopics}
             onRetryTopic={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
             onScoreUpdate={handleScoreUpdate}
+            onCitationClick={(src) => setViewingPdfName(src)}
           />
 
           {/* ── File chips ABOVE the input bar (session-specific) ── */}
@@ -287,29 +316,55 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Input bar */}
-          <ChatInput
-            question={question}
-            setQuestion={setQuestion}
-            handleAsk={() => handleAsk(false)}
-            currentMode={currentMode}
-            setMode={handleModeSwitch}
-            loading={loading}
-            user={user}
-            uploading={uploading}
-            onFileUpload={handleUpload}
-            onAuthRequired={() => {
-              setIsAuthModalOpen(true);
-              showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
-            }}
-          />
-        </div>
-      </main>
+            {/* Input bar */}
+            <div className="w-full max-w-4xl mx-auto">
+              <ChatInput
+                question={question}
+                setQuestion={setQuestion}
+                handleAsk={() => handleAsk(false)}
+                currentMode={currentMode}
+                setMode={handleModeSwitch}
+                loading={loading}
+                user={user}
+                uploading={uploading}
+                onFileUpload={handleUpload}
+                onAuthRequired={() => {
+                  setIsAuthModalOpen(true);
+                  showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
+                }}
+              />
+            </div>
+          </>
+        )}
+      </div>
 
       <AuthModal
         isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)}
         setUser={setUser} isLoginView={isLoginView} setIsLoginView={setIsLoginView}
       />
+
+      {/* Side-by-Side PDF Viewer */}
+      {viewingPdfName && (
+        <div className="w-1/2 flex flex-col bg-[#0F172A] relative animate-fade-in">
+          <div className="p-3 border-b border-slate-800/50 flex justify-between items-center bg-[#0B0F1A]">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500">Document Viewer</span>
+              <span className="text-[10px] text-slate-500 truncate max-w-[200px]">{viewingPdfName}</span>
+            </div>
+            <button 
+              onClick={() => setViewingPdfName(null)} 
+              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          <iframe 
+            src={`http://localhost:5000/files/view/${encodeURIComponent(viewingPdfName)}`} 
+            className="flex-1 w-full border-0 bg-white" 
+            title="PDF Viewer"
+          />
+        </div>
+      )}
     </div>
   );
 };

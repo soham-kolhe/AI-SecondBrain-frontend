@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { BookOpen, FileText, Search, ChevronDown, Paperclip, ArrowUp, CornerDownLeft } from 'lucide-react';
 
 const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loading, user, uploading, onFileUpload, onAuthRequired }) => {
   const [isModeOpen, setIsModeOpen] = useState(false);
@@ -25,7 +26,7 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
   const modes = {
     study: {
       label: 'Study Mode',
-      icon: '📚',
+      icon: <BookOpen size={12} />,
       desc: 'Normal chat with your PDFs',
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-500/10',
@@ -33,7 +34,7 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
     },
     test: {
       label: 'Assessment',
-      icon: '📝',
+      icon: <FileText size={12} />,
       desc: 'MCQ-based assessment engine',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
@@ -41,7 +42,7 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
     },
     research: {
       label: 'Research',
-      icon: '🔍',
+      icon: <Search size={12} />,
       desc: 'Strict mode with deep citations',
       color: 'text-emerald-400',
       bgColor: 'bg-emerald-500/10',
@@ -112,15 +113,18 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
   const active = modes[currentMode] || modes.study;
 
   return (
-    <div className="px-6 md:px-20 pb-8 pt-2 bg-[#0B0F1A] w-full">
-      <div className="relative flex flex-col bg-slate-900/40 border border-slate-800 rounded-[28px] p-2 focus-within:border-slate-700/50 transition-all shadow-2xl backdrop-blur-md">
+    <div className="w-full px-4 md:px-6 pb-6 pt-2">
+      <div className="relative flex flex-col bg-slate-900/60 border border-slate-800/50 rounded-[28px] p-2 focus-within:border-slate-700/80 transition-all shadow-2xl backdrop-blur-md">
 
         {/* ── COMMAND SUGGESTION MENU (floating above input) ── */}
         {cmdMenuOpen && filteredCmds.length > 0 && (
           <div className="absolute bottom-full left-0 right-0 mb-3 mx-2 bg-[#0F172A] border border-slate-700/60 rounded-2xl p-2 shadow-[0_25px_60px_rgba(0,0,0,0.6)] z-50">
-            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest px-3 py-2 border-b border-slate-800/60 mb-1">
-              {currentMode === 'test' ? '📝 Assessment Commands' : '📚 Study Commands'}
-            </p>
+            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-800/60 mb-1">
+              {currentMode === 'test' ? <FileText size={12} className="text-slate-500" /> : <BookOpen size={12} className="text-slate-500" />}
+              <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">
+                {currentMode === 'test' ? 'Assessment Commands' : 'Study Commands'}
+              </p>
+            </div>
             {filteredCmds.map((c) => (
               <div key={c.cmd} className="flex items-center group">
                 <button
@@ -134,9 +138,9 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
                 <button
                   onMouseDown={(e) => { e.preventDefault(); executeCommand(c.cmd); }}
                   title="Run this command"
-                  className="opacity-0 group-hover:opacity-100 mr-2 px-2 py-1 rounded-lg bg-slate-700/60 hover:bg-slate-700 transition-all text-[9px] text-slate-400 font-bold uppercase"
+                  className="opacity-0 group-hover:opacity-100 mr-2 px-2 py-1 rounded-lg bg-slate-700/60 hover:bg-slate-700 transition-all text-slate-400 font-bold uppercase flex items-center gap-1"
                 >
-                  ↵ Run
+                  <CornerDownLeft size={10} /> <span className="text-[9px]">Run</span>
                 </button>
               </div>
             ))}
@@ -151,10 +155,10 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all hover:bg-slate-800 ${active.bgColor} ${active.border}`}
             >
               <span className="text-[10px] animate-pulse">●</span>
-              <span className={`text-[9px] font-black uppercase tracking-[0.15em] ${active.color}`}>
+              <span className={`text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-1 ${active.color}`}>
                 {active.icon} {active.label}
               </span>
-              <span className="text-[8px] text-slate-500 ml-1">▼</span>
+              <ChevronDown size={10} className="text-slate-500 ml-1" />
             </button>
 
             {isModeOpen && (
@@ -169,7 +173,7 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xs">{modes[key].icon}</span>
+                      <span className={`${modes[key].color}`}>{modes[key].icon}</span>
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${modes[key].color}`}>
                         {modes[key].label}
                       </span>
@@ -207,7 +211,7 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
             {uploading ? (
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
             ) : (
-              <span className="text-xl leading-none font-light">+</span>
+              <Paperclip size={18} />
             )}
             <input
               type="file"
@@ -252,7 +256,7 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
             {loading ? (
               <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
             ) : (
-              <span className="text-xl font-bold">↑</span>
+              <ArrowUp size={20} strokeWidth={3} />
             )}
           </button>
         </div>
