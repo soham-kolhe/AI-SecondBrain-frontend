@@ -1,56 +1,75 @@
 import React from "react";
-import { Brain, LogOut, LogIn } from "lucide-react";
+import { Brain, Sun, Moon } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
 
-const Navbar = ({
-  user,
-  onLoginClick,
-  onLogout,
-}) => {
+const Navbar = ({ sessionTitle }) => {
+  const { theme, toggleTheme } = useTheme();
+
   return (
-    // 'flex justify-between items-center' ensures Left and Right sections are perfectly aligned
-    <nav className="px-8 py-4 border-b border-slate-800/30 bg-[#0B0F1A] z-20 flex justify-between items-center">
-      {/* 🟢 LEFT SECTION: Logo */}
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 bg-cyan-500 rounded flex items-center justify-center shadow-[0_0_10px_rgba(6,182,212,0.4)] text-black">
-          <Brain size={14} />
+    <nav className="glass-panel" style={{
+      padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      zIndex: 20, borderTop: 'none', borderLeft: 'none', borderRight: 'none',
+      borderBottom: 'none', background: 'var(--bg-primary)',
+    }}>
+      {/* Logo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+          background: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: 'var(--shadow-glow-cyan)', color: '#000',
+        }}>
+          <Brain size={15} />
         </div>
-        <h1 className="text-sm font-bold tracking-widest text-slate-100 uppercase">
+        <h1 style={{
+          fontSize: 13, fontWeight: 800, letterSpacing: '0.12em',
+          color: 'var(--text-primary)', textTransform: 'uppercase', margin: 0,
+        }}>
           Second Brain
         </h1>
       </div>
 
-      {/* 🔵 RIGHT SECTION: Auth */}
-      <div className="flex items-center gap-6">
-        {/* 2. Authentication (Top Right Corner) */}
-        <div>
-          {user ? (
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden md:block">
-                {/* Fallback to user.name if user.user.name is not structured that way */}
-                <p className="text-[10px] font-black text-slate-100 uppercase leading-none">
-                  {user.user?.name || user.name}
-                </p>
-                <p className="text-[8px] text-cyan-500 font-bold uppercase mt-1 tracking-widest">
-                  Pro Member
-                </p>
-              </div>
-              <button
-                onClick={onLogout}
-                className="bg-slate-800 text-slate-400 px-3 py-2 rounded-lg hover:bg-red-500/10 hover:text-red-500 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"
-              >
-                <LogOut size={12} /> Logout
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onLoginClick}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-cyan-500 transition-all border border-slate-800 px-5 py-2 rounded-xl hover:bg-slate-800"
-            >
-              <LogIn size={12} /> Sign In
-            </button>
-          )}
+      {/* Center: Session Title */}
+      {sessionTitle && (
+        <div className="animate-fade-in" style={{
+          position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+          fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+          maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {sessionTitle}
         </div>
-      </div>
+      )}
+
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        style={{
+          width: 36, height: 36, borderRadius: 'var(--radius-full)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+          cursor: 'pointer', color: 'var(--text-secondary)',
+          transition: 'all var(--transition-base)',
+          position: 'relative', overflow: 'hidden',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'var(--border-hover)';
+          e.currentTarget.style.transform = 'scale(1.08)';
+          e.currentTarget.style.color = 'var(--accent-cyan)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'var(--border-glass)';
+          e.currentTarget.style.transform = 'scale(1)';
+          e.currentTarget.style.color = 'var(--text-secondary)';
+        }}
+        title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      >
+        <div style={{
+          transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transform: theme === 'dark' ? 'rotate(0deg)' : 'rotate(180deg)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </div>
+      </button>
     </nav>
   );
 };

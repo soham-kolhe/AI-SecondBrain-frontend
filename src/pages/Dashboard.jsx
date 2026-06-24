@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { Brain } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Brain, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Navbar from "../components/Navbar/Navbar";
 import Sidebar from "../components/Sidebar/Sidebar";
-import FileChip from "../components/Navbar/FileChip";
+import FileBrowser from "../components/Workspace/FileBrowser";
+import PdfViewer from "../components/Workspace/PdfViewer";
 import ChatWindow from "../components/Chat/ChatWindow";
 import ChatInput from "../components/Chat/ChatInput";
 import AuthModal from "../components/Navbar/AuthModal";
@@ -19,6 +20,7 @@ const Dashboard = () => {
     summary, setSummary,
     flashcards, setFlashcards,
     uploadedFiles, setUploadedFiles,
+    allUserFiles, setAllUserFiles,
     chatSessions,
     activeSessionId, setActiveSessionId,
     weakTopics, setWeakTopics,
@@ -37,6 +39,49 @@ const Dashboard = () => {
   const [toast, setToast] = useState(null);
   const [activeFile, setActiveFile] = useState(null);
   const [viewingPdfName, setViewingPdfName] = useState(null);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(true); // Closed by default
+  const [leftPanelWidth, setLeftPanelWidth] = useState(380);
+  const [isResizing, setIsResizing] = useState(false);
+  const [fileViewMode, setFileViewMode] = useState('all'); // 'all' or 'chat'
+
+  const startResizing = (e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e) => {
+      const panel = document.getElementById("left-workspace-panel");
+      if (!panel) return;
+      const rect = panel.getBoundingClientRect();
+      let newWidth = e.clientX - rect.left;
+      newWidth = Math.max(280, Math.min(newWidth, window.innerWidth * 0.75));
+      setLeftPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const handleWidthToggle = () => {
+    const wideWidth = Math.floor(window.innerWidth * 0.6);
+    if (leftPanelWidth < wideWidth) {
+      setLeftPanelWidth(wideWidth);
+    } else {
+      setLeftPanelWidth(380);
+    }
+  };
 
   const showToast = (type, message, duration = 3500) => {
     setToast({ type, message });
@@ -44,68 +89,114 @@ const Dashboard = () => {
   };
 
   const handleModeSwitch = (newMode) => {
-    setMode(newMode);
-    if (newMode === 'test') setFlashcards([]);
+    if (newMode !== currentMode) {
+      setMode(newMode);
+      startNewChat();
+      setLeftPanelCollapsed(true);
+      setViewingPdfName(null);
+      setFileViewMode('all');
+      if (newMode === 'test') setFlashcards([]);
+    }
   };
 
-  const handleAsk = async (isLoadMore = false) => {
-    const originalQ = question.trim();
+  const handleNewChat = () => {
+    startNewChat();
+    setLeftPanelCollapsed(true);
+    setViewingPdfName(null);
+    setFileViewMode('all');
+  };
+
+  const handleSelectSession = async (id) => {
+    await loadSession(id);
+    setFileViewMode('chat');
+  };
+
+  const handleToggleDocuments = () => {
+    if (leftPanelCollapsed) {
+      setLeftPanelCollapsed(false);
+      setFileViewMode('all');
+      setLeftPanelWidth(380); // Reset to default width when opened via Documents sidebar button
+    } else {
+      if (fileViewMode === 'chat') {
+        setFileViewMode('all');
+        setLeftPanelWidth(380); // Reset to default width
+      } else {
+        setLeftPanelCollapsed(true);
+      }
+    }
+  };
+
+  const handleFloatingToggle = () => {
+    if (leftPanelCollapsed) {
+      setLeftPanelCollapsed(false);
+      if (viewingPdfName) {
+        setLeftPanelWidth(Math.floor(window.innerWidth * 0.60));
+      } else {
+        setLeftPanelWidth(380);
+      }
+    } else {
+      setLeftPanelCollapsed(true);
+    }
+  };
+
+  const handleAsk = async (isLoadMore = false, overrideText = null) => {
+    const rawQ = overrideText !== null ? overrideText : question;
+    const originalQ = rawQ.trim();
     if (!originalQ && !isLoadMore) return;
 
     const isCommand = originalQ.startsWith('/');
     const parts = originalQ.split(' ');
     const cmd = isCommand ? parts[0].toLowerCase() : null;
 
-    // ── GUARD: Assessment mode requires login ─────────────────────────────────
     if (currentMode === 'test' && !user) {
       setIsAuthModalOpen(true);
       showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
-      setQuestion('');
+      if (overrideText === null) setQuestion('');
       return;
     }
 
-    // ── LOCAL commands (instant, no backend) ──────────────────────────────────
+    // Local commands
     if (isCommand) {
       const localStudy = { '/reset': true, '/clear': true, '/summary': true, '/help': true };
-      const localTest  = { '/reset': true, '/clear': true, '/stats': true, '/help': true, '/study': true };
-      const isLocal = currentMode === 'study' ? localStudy[cmd] : localTest[cmd];
+      const localTest = { '/reset': true, '/clear': true, '/stats': true, '/help': true, '/study': true };
 
       if (cmd === '/reset' || cmd === '/clear') {
-        setChatHistory([]); setFlashcards([]); setActiveFile(null); setQuestion(''); return;
+        setChatHistory([]); setFlashcards([]); setActiveFile(null); if (overrideText === null) setQuestion(''); return;
       }
       if (currentMode === 'study' && cmd === '/summary') {
         const msg = summary.length > 0
           ? "**Summary:**\n" + summary.map(p => `- ${p}`).join('\n')
           : "No summary yet. Upload a document first.";
         setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: msg }]);
-        setQuestion(''); return;
+        if (overrideText === null) setQuestion(''); return;
       }
       if (currentMode === 'study' && cmd === '/help') {
         setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: "**Study Mode:**\n`/summary` `/files` `/reset`\n\nSwitch to Assessment Mode for `/start` `/10` `/weak` `/stats`." }]);
-        setQuestion(''); return;
+        if (overrideText === null) setQuestion(''); return;
       }
       if (currentMode === 'test' && cmd === '/stats') {
         const msg = weakTopics.length > 0
           ? "**Your Stats:**\n" + weakTopics.map(t => `- **${t.topic}** — ${t.wrongCount}× missed (${t.source || 'unknown'})`).join('\n')
           : "No stats yet. Complete assessments first.";
         setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: msg }]);
-        setQuestion(''); return;
+        if (overrideText === null) setQuestion(''); return;
       }
       if (currentMode === 'test' && cmd === '/study') {
         handleModeSwitch('study');
         setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: 'Switched to **Study Mode**.' }]);
-        setQuestion(''); return;
+        if (overrideText === null) setQuestion(''); return;
       }
       if (currentMode === 'test' && cmd === '/help') {
         setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: "**Assessment Mode:**\n`/start [file]` `/10` `/weak` `/stats` `/study` `/reset`" }]);
-        setQuestion(''); return;
+        if (overrideText === null) setQuestion(''); return;
       }
     }
 
-    // ── BACKEND CALL ──────────────────────────────────────────────────────────
-    const userMsg = { role: 'user', text: isLoadMore ? `📄 /10 — Load more questions` : originalQ };
+    // Backend call
+    const userMsgText = isLoadMore ? `📄 /10 — Load more questions` : originalQ;
+    const userMsg = { role: 'user', text: userMsgText };
     setChatHistory(prev => [...prev, userMsg]);
-    setQuestion('');
+    if (overrideText === null) setQuestion('');
     setLoading(true);
 
     try {
@@ -125,16 +216,16 @@ const Dashboard = () => {
       const newFlashcards = res.data.flashcards || [];
       const aiMsg = { role: 'ai', text: aiText, sources: res.data.sources || [], flashcards: newFlashcards };
 
-      let updatedHistory;
-      setChatHistory(prev => { updatedHistory = [...prev, aiMsg]; return updatedHistory; });
+      const nextHistory = [...chatHistory, userMsg, aiMsg];
+      setChatHistory(nextHistory);
 
       if (newFlashcards.length > 0) {
         const merged = isLoadMore ? [...flashcards, ...newFlashcards] : newFlashcards;
         setFlashcards(merged);
-        const newId = await saveCurrentSession(updatedHistory, summary, merged, activeSessionId);
+        const newId = await saveCurrentSession(nextHistory, summary, merged, activeSessionId);
         if (!activeSessionId && newId) setActiveSessionId(newId);
       } else {
-        const newId = await saveCurrentSession(updatedHistory, summary, flashcards, activeSessionId);
+        const newId = await saveCurrentSession(nextHistory, summary, flashcards, activeSessionId);
         if (!activeSessionId && newId) setActiveSessionId(newId);
       }
     } catch (err) {
@@ -157,35 +248,28 @@ const Dashboard = () => {
     formData.append("pdf", selectedFile);
     try {
       const res = await api.post("/ingest", formData);
-      setSummary(res.data.summary || []);
+      const newSummary = res.data.summary || [];
+      setSummary(newSummary);
 
-      // Add to session-scoped uploadedFiles
+      let nextFiles = uploadedFiles;
       if (res.data.file) {
-        setUploadedFiles(prev => {
-          const updated = [...prev, res.data.file];
-          return updated;
-        });
+        nextFiles = [...uploadedFiles, res.data.file];
+        setUploadedFiles(nextFiles);
+        setAllUserFiles(prev => [...prev, res.data.file]);
       }
 
-      const summaryPoints = (res.data.summary || []).map(p => `- ${p}`).join('\n');
+      const summaryPoints = newSummary.map(p => `- ${p}`).join('\n');
       const aiMsg = {
         role: 'ai',
         text: `✅ **${selectedFile.name}** added to this Brain.\n\n${summaryPoints}`,
         sources: [selectedFile.name],
       };
 
-      let updatedHistory;
-      let updatedFiles;
-      setChatHistory(prev => { updatedHistory = [...prev, aiMsg]; return updatedHistory; });
-      setUploadedFiles(prev => { updatedFiles = prev; return prev; });
+      const nextHistory = [...chatHistory, aiMsg];
+      setChatHistory(nextHistory);
 
-      // Small delay so state flushes before saving
-      setTimeout(async () => {
-        setUploadedFiles(currentFiles => {
-          saveCurrentSession(updatedHistory, res.data.summary, flashcards, activeSessionId, currentFiles);
-          return currentFiles;
-        });
-      }, 100);
+      const newId = await saveCurrentSession(nextHistory, newSummary, flashcards, activeSessionId, nextFiles);
+      if (!activeSessionId && newId) setActiveSessionId(newId);
 
       setFile(null);
     } catch (err) {
@@ -203,168 +287,474 @@ const Dashboard = () => {
     } catch (err) { console.error("Score tracking failed", err); }
   };
 
-  // ── Sidebar action handlers ──────────────────────────────────────────────
-  const handleRename = async (id, newTitle) => {
-    await renameSession(id, newTitle);
-  };
-
-  const handleDelete = async (id) => {
-    await deleteSession(id);
-    showToast('info', 'Session deleted.');
-  };
-
+  const handleRename = async (id, newTitle) => { await renameSession(id, newTitle); };
+  const handleDelete = async (id) => { await deleteSession(id); showToast('info', 'Session deleted.'); };
   const handleShare = async (id) => {
     const ok = await shareSession(id);
     if (ok) showToast('success', 'Chat copied to clipboard!');
     else showToast('error', 'Share failed. Try again.');
   };
 
-  const toastBg = {
-    error: 'bg-red-500/20 border-red-500/40 text-red-300',
-    info: 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300',
-    success: 'bg-green-500/20 border-green-500/40 text-green-300',
+  const toastStyles = {
+    error: { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)', color: '#f87171' },
+    info: { bg: 'rgba(6,182,212,0.15)', border: 'rgba(6,182,212,0.3)', color: '#22d3ee' },
+    success: { bg: 'rgba(34,197,94,0.15)', border: 'rgba(34,197,94,0.3)', color: '#4ade80' },
   };
 
+  const getModeStyles = () => {
+    switch (currentMode) {
+      case 'test':
+        return {
+          glowColor: 'rgba(168, 85, 247, 0.3)',
+          borderColor: 'rgba(168, 85, 247, 0.6)',
+          textColor: '#a855f7',
+          bgGlow: 'rgba(168, 85, 247, 0.1)',
+        };
+      case 'research':
+        return {
+          glowColor: 'rgba(16, 185, 129, 0.3)',
+          borderColor: 'rgba(16, 185, 129, 0.6)',
+          textColor: 'var(--accent-emerald)',
+          bgGlow: 'rgba(16, 185, 129, 0.1)',
+        };
+      default:
+        return {
+          glowColor: 'rgba(6, 182, 212, 0.3)',
+          borderColor: 'var(--border-accent)',
+          textColor: 'var(--accent-cyan)',
+          bgGlow: 'var(--accent-cyan-glow)',
+        };
+    }
+  };
+  const modeStyles = getModeStyles();
+
   const isEmpty = chatHistory.length === 0 && flashcards.length === 0;
+  const hasFiles = uploadedFiles.length > 0;
+  const showLeftPanel = !leftPanelCollapsed;
+
+  // Find active session title for navbar
+  const activeSession = chatSessions.find(s => s._id === activeSessionId);
+  const sessionTitle = activeSession?.title;
 
   return (
-    <div className="h-screen w-screen bg-[#0B0F1A] text-slate-200 flex overflow-hidden font-sans">
+    <div style={{
+      height: '100vh', width: '100vw',
+      background: 'var(--bg-primary)', color: 'var(--text-primary)',
+      display: 'flex', overflow: 'hidden', fontFamily: "'Inter', sans-serif",
+    }}>
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 rounded-2xl border text-[12px] font-bold uppercase tracking-wider shadow-2xl backdrop-blur-sm ${toastBg[toast.type]}`}>
+        <div className="animate-fade-in-down" style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 9999, padding: '10px 24px', borderRadius: 'var(--radius-xl)',
+          fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em',
+          background: toastStyles[toast.type]?.bg, border: `1px solid ${toastStyles[toast.type]?.border}`,
+          color: toastStyles[toast.type]?.color, backdropFilter: 'blur(16px)',
+          boxShadow: 'var(--shadow-lg)',
+        }}>
           {toast.message}
         </div>
       )}
 
-      {/* Sidebar on the far left */}
+      {/* Sidebar */}
       <Sidebar
         chatSessions={chatSessions}
         activeSessionId={activeSessionId}
-        onSelectSession={loadSession}
-        onNewChat={startNewChat}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleNewChat}
         onRename={handleRename}
         onDelete={handleDelete}
         onShare={handleShare}
         weakTopics={weakTopics}
         onRetryTopic={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
+        user={user}
+        onLoginClick={() => { setIsLoginView(true); setIsAuthModalOpen(true); }}
+        onRegisterClick={() => { setIsLoginView(false); setIsAuthModalOpen(true); }}
+        onLogout={logout}
+        currentMode={currentMode}
+        onModeSwitch={handleModeSwitch}
+        isDocumentsOpen={!leftPanelCollapsed}
+        onToggleDocuments={handleToggleDocuments}
       />
 
       {/* Main Content Area */}
-      <div className={`flex flex-col bg-[#0B0F1A] overflow-hidden relative transition-all ${viewingPdfName ? 'w-1/2 border-r border-slate-800/50' : 'flex-1'}`}>
-        <Navbar user={user} onLoginClick={() => setIsAuthModalOpen(true)} onLogout={logout} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+        <Navbar sessionTitle={sessionTitle} />
 
-        {isEmpty ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 pb-20">
-            <div className="mb-8 text-center animate-fade-in-up">
-              <div className="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center mb-6 mx-auto animate-pulse border border-cyan-500/20 shadow-[0_0_30px_rgba(6,182,212,0.15)] text-cyan-400">
-                <Brain size={32} />
-              </div>
-              <h2 className="text-2xl md:text-3xl font-black text-slate-100 uppercase tracking-[0.2em] mb-3">
-                How can I help you today?
-              </h2>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-                Upload a document or ask a question to start.
-              </p>
-            </div>
-            
-            <div className="w-full max-w-3xl animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <ChatInput
-                question={question}
-                setQuestion={setQuestion}
-                handleAsk={() => handleAsk(false)}
-                currentMode={currentMode}
-                setMode={handleModeSwitch}
-                loading={loading}
-                user={user}
-                uploading={uploading}
-                onFileUpload={handleUpload}
-                onAuthRequired={() => {
-                  setIsAuthModalOpen(true);
-                  showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
-                }}
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Chat messages + MCQs */}
-          <ChatWindow
-            chatHistory={chatHistory}
-            loading={loading}
-            summary={summary}
-            flashcards={flashcards}
-            currentMode={currentMode}
-            onLoadMore={() => handleAsk(true)}
-            weakTopics={weakTopics}
-            onRetryTopic={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
-            onScoreUpdate={handleScoreUpdate}
-            onCitationClick={(src) => setViewingPdfName(src)}
-          />
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
 
-          {/* ── File chips ABOVE the input bar (session-specific) ── */}
-          {uploadedFiles.length > 0 && (
-            <div className="px-6 md:px-20 py-2 flex gap-2 flex-wrap overflow-x-auto no-scrollbar border-t border-slate-800/50">
-              {uploadedFiles.map((f, i) => (
-                <FileChip
-                  key={f._id || i}
-                  file={f}
-                  onDelete={() => {
-                    setUploadedFiles(prev => prev.filter((_, idx) => idx !== i));
+          {/* ── LEFT PANEL: File Browser + PDF Viewer ── */}
+          <div
+            id="left-workspace-panel"
+            className="animate-slide-in-left"
+            style={{
+              width: showLeftPanel ? leftPanelWidth : 0,
+              minWidth: showLeftPanel ? 280 : 0,
+              maxWidth: showLeftPanel ? '80vw' : 0,
+              transition: isResizing ? 'none' : 'width var(--transition-slow)',
+              display: 'flex', flexDirection: 'column',
+              borderRight: showLeftPanel ? '1px solid var(--border-glass)' : 'none',
+              background: 'var(--bg-secondary)', overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
+            {showLeftPanel && (
+              <>
+                {/* Dynamically toggle between File Browser and PDF Viewer */}
+                {!viewingPdfName ? (
+                  <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <FileBrowser
+                      files={fileViewMode === 'chat' ? uploadedFiles : allUserFiles}
+                      activeFile={viewingPdfName}
+                      fileViewMode={fileViewMode}
+                      onModeChange={setFileViewMode}
+                      hasActiveSession={!!activeSessionId}
+                      onFileSelect={(name) => {
+                        setViewingPdfName(name);
+                        setLeftPanelCollapsed(false);
+                        setLeftPanelWidth(Math.floor(window.innerWidth * 0.60));
+                      }}
+                      onFileDelete={async (id, name) => {
+                        try {
+                          await api.delete(`/files/${id}/${encodeURIComponent(name)}`);
+                          setUploadedFiles(prev => prev.filter(f => f._id !== id));
+                          setAllUserFiles(prev => prev.filter(f => f._id !== id));
+                          if (viewingPdfName === name) setViewingPdfName(null);
+                          showToast('success', 'File deleted successfully');
+                        } catch (err) {
+                          showToast('error', 'Failed to delete file');
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <PdfViewer
+                      fileName={viewingPdfName}
+                      onClose={() => {
+                        setViewingPdfName(null);
+                        setLeftPanelCollapsed(true);
+                        setLeftPanelWidth(380);
+                      }}
+                      isResizing={isResizing}
+                      onWidthToggle={handleWidthToggle}
+                      leftPanelWidth={leftPanelWidth}
+                      onQuoteText={(text) => setQuestion(prev => prev ? prev + '\n' + `"${text}"` : `"${text}"`)}
+                      onAskAI={(text) => handleAsk(false, `Explain this text from the PDF:\n\n"${text}"`)}
+                    />
+                  </div>
+                )}
+                
+                {/* Drag Resizer Divider handle */}
+                <div
+                  onMouseDown={startResizing}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: 6,
+                    height: '100%',
+                    cursor: 'col-resize',
+                    zIndex: 100,
+                    background: isResizing ? 'var(--accent-cyan)' : 'transparent',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isResizing) e.currentTarget.style.background = 'rgba(6, 182, 212, 0.3)';
+                  }}
+                  onMouseLeave={e => {
+                    if (!isResizing) e.currentTarget.style.background = 'transparent';
                   }}
                 />
-              ))}
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
-            {/* Input bar */}
-            <div className="w-full max-w-4xl mx-auto">
-              <ChatInput
-                question={question}
-                setQuestion={setQuestion}
-                handleAsk={() => handleAsk(false)}
-                currentMode={currentMode}
-                setMode={handleModeSwitch}
-                loading={loading}
-                user={user}
-                uploading={uploading}
-                onFileUpload={handleUpload}
-                onAuthRequired={() => {
-                  setIsAuthModalOpen(true);
-                  showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
-                }}
-              />
+          {/* Unified Floating Collapse/Expand Button */}
+          <button
+            onClick={handleFloatingToggle}
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: leftPanelCollapsed ? '12px' : `${leftPanelWidth - 14}px`,
+              zIndex: 100,
+              width: 28,
+              height: 28,
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--bg-glass)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid var(--border-glass)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              transition: isResizing 
+                ? 'none' 
+                : 'all var(--transition-base), left var(--transition-slow)',
+              boxShadow: 'var(--shadow-sm)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-cyan)'; e.currentTarget.style.borderColor = 'var(--border-accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border-glass)'; }}
+            title={leftPanelCollapsed ? "Expand panel" : "Collapse panel"}
+          >
+            {leftPanelCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+          </button>
+
+          {/* ── RIGHT PANEL: Chat ── */}
+          <div style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            background: 'var(--bg-primary)', overflow: 'hidden',
+            transition: 'all var(--transition-slow)',
+            position: 'relative',
+          }}>
+            {/* Interactive 3D Background */}
+            <div className={`mode-bg-container ${!isEmpty ? "chat-started" : ""}`} style={{
+              position: 'absolute',
+              inset: 0,
+              pointerEvents: 'none',
+              zIndex: 0,
+              overflow: 'hidden',
+            }}>
+              {currentMode === 'study' && (
+                <div className="study-3d-bg">
+                  <div className="grid-3d-plane study" />
+                  <div className="study-orb-1" />
+                  <div className="study-orb-2" />
+                </div>
+              )}
+              {currentMode === 'test' && (
+                <div className="test-3d-bg">
+                  <div className="grid-3d-plane test" />
+                  <div className="test-orb-1" />
+                  <div className="test-orb-2" />
+                </div>
+              )}
+              {currentMode === 'research' && (
+                <div className="research-3d-bg">
+                  <div className="grid-3d-plane research" />
+                  <div className="research-orb-1" />
+                  <div className="research-orb-2" />
+                </div>
+              )}
             </div>
-          </>
-        )}
+
+            {isEmpty ? (
+              <div style={{
+                flex: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                padding: '24px 24px 80px',
+                position: 'relative',
+                zIndex: 1,
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                }}>
+                  <div className="animate-fade-in-up" style={{ textAlign: 'center', marginBottom: 24 }}>
+                  <div style={{
+                    width: 64, height: 64, borderRadius: 'var(--radius-full)',
+                    background: modeStyles.bgGlow, border: `1px solid ${modeStyles.borderColor}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 24px', color: modeStyles.textColor,
+                    boxShadow: `0 0 20px ${modeStyles.glowColor}`,
+                    animation: 'pulseGlow 3s ease-in-out infinite',
+                    transition: 'all 0.5s ease-in-out',
+                  }}>
+                    <Brain size={28} />
+                  </div>
+                  <h2 style={{
+                    fontSize: 28, fontWeight: 900, color: 'var(--text-primary)',
+                    textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 8,
+                  }}>
+                    How can I help you today?
+                  </h2>
+                  <p style={{
+                    fontSize: 11, fontWeight: 700, color: 'var(--text-muted)',
+                    textTransform: 'uppercase', letterSpacing: '0.25em',
+                  }}>
+                    Upload a document or ask a question to start.
+                  </p>
+                </div>
+
+                {/* Mode suggestions and prompts */}
+                <div className="animate-fade-in-up" style={{ width: '100%', maxWidth: 700, marginBottom: 24, textAlign: 'center', animationDelay: '0.05s' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, fontStyle: 'italic' }}>
+                    {currentMode === 'study' && "Study Mode: Deeply analyze documents, generate summaries, and explain concepts."}
+                    {currentMode === 'test' && "Assessment Mode: Take tests, target weak topics, and view stats."}
+                    {currentMode === 'research' && "Research Mode: Evidence-based analysis with strict verified citations."}
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
+                    {currentMode === 'study' && [
+                      { text: "Summarize document", cmd: "/summary" },
+                      { text: "Explain key concepts", cmd: "Explain the key concepts in this document." },
+                      { text: "Generate study guide", cmd: "Generate a study guide from the document." }
+                    ].map((chip, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setQuestion(chip.cmd)}
+                        style={{
+                          padding: '8px 16px', borderRadius: 'var(--radius-full)',
+                          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+                          color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
+                          cursor: 'pointer', transition: 'all var(--transition-base)',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = 'var(--accent-cyan)';
+                          e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                          e.currentTarget.style.background = 'var(--bg-card-hover)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                          e.currentTarget.style.borderColor = 'var(--border-glass)';
+                          e.currentTarget.style.background = 'var(--bg-card)';
+                        }}
+                      >
+                        {chip.text}
+                      </button>
+                    ))}
+
+                    {currentMode === 'test' && [
+                      { text: "Generate MCQs", cmd: "/10" },
+                      { text: "Check weak topics", cmd: "/weak" },
+                      { text: "Show statistics", cmd: "/stats" }
+                    ].map((chip, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          if (!user) {
+                            setIsAuthModalOpen(true);
+                            showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
+                          } else {
+                            setQuestion(chip.cmd);
+                          }
+                        }}
+                        style={{
+                          padding: '8px 16px', borderRadius: 'var(--radius-full)',
+                          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+                          color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
+                          cursor: 'pointer', transition: 'all var(--transition-base)',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = 'var(--accent-purple)';
+                          e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                          e.currentTarget.style.background = 'var(--bg-card-hover)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                          e.currentTarget.style.borderColor = 'var(--border-glass)';
+                          e.currentTarget.style.background = 'var(--bg-card)';
+                        }}
+                      >
+                        {chip.text}
+                      </button>
+                    ))}
+
+                    {currentMode === 'research' && [
+                      { text: "Verify claims", cmd: "Verify the main claims in this document against facts." },
+                      { text: "Synthesize sources", cmd: "Compare and synthesize findings across the uploaded documents." },
+                      { text: "Literature outline", cmd: "Generate a structured literature review outline from this content." }
+                    ].map((chip, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setQuestion(chip.cmd)}
+                        style={{
+                          padding: '8px 16px', borderRadius: 'var(--radius-full)',
+                          background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+                          color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
+                          cursor: 'pointer', transition: 'all var(--transition-base)',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.color = 'var(--accent-emerald)';
+                          e.currentTarget.style.borderColor = 'var(--accent-emerald)';
+                          e.currentTarget.style.background = 'var(--bg-card-hover)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                          e.currentTarget.style.borderColor = 'var(--border-glass)';
+                          e.currentTarget.style.background = 'var(--bg-card)';
+                        }}
+                      >
+                        {chip.text}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="animate-fade-in-up" style={{ width: '100%', maxWidth: 700, animationDelay: '0.1s' }}>
+                  <ChatInput
+                    question={question}
+                    setQuestion={setQuestion}
+                    handleAsk={() => handleAsk(false)}
+                    currentMode={currentMode}
+                    setMode={handleModeSwitch}
+                    loading={loading}
+                    user={user}
+                    uploading={uploading}
+                    uploadedFiles={uploadedFiles}
+                    onFileUpload={handleUpload}
+                    onAuthRequired={() => {
+                      setIsAuthModalOpen(true);
+                      showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+                <ChatWindow
+                  chatHistory={chatHistory}
+                  loading={loading}
+                  summary={summary}
+                  flashcards={flashcards}
+                  currentMode={currentMode}
+                  onLoadMore={() => handleAsk(true)}
+                  weakTopics={weakTopics}
+                  onRetryTopic={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
+                  onScoreUpdate={handleScoreUpdate}
+                  onCitationClick={(src) => {
+                    setViewingPdfName(null);
+                    setLeftPanelCollapsed(false);
+                    setLeftPanelWidth(380);
+                  }}
+                />
+
+                {/* Input bar */}
+                <div style={{ width: '100%', maxWidth: 800, margin: '0 auto', position: 'relative', zIndex: 2 }}>
+                  <ChatInput
+                    question={question}
+                    setQuestion={setQuestion}
+                    handleAsk={() => handleAsk(false)}
+                    currentMode={currentMode}
+                    setMode={handleModeSwitch}
+                    loading={loading}
+                    user={user}
+                    uploading={uploading}
+                    uploadedFiles={uploadedFiles}
+                    onFileUpload={handleUpload}
+                    onAuthRequired={() => {
+                      setIsAuthModalOpen(true);
+                      showToast('error', 'Assessment Mode is a Pro feature. Please Login.');
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <AuthModal
         isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)}
         setUser={setUser} isLoginView={isLoginView} setIsLoginView={setIsLoginView}
       />
-
-      {/* Side-by-Side PDF Viewer */}
-      {viewingPdfName && (
-        <div className="w-1/2 flex flex-col bg-[#0F172A] relative animate-fade-in">
-          <div className="p-3 border-b border-slate-800/50 flex justify-between items-center bg-[#0B0F1A]">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500">Document Viewer</span>
-              <span className="text-[10px] text-slate-500 truncate max-w-[200px]">{viewingPdfName}</span>
-            </div>
-            <button 
-              onClick={() => setViewingPdfName(null)} 
-              className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-800 text-slate-500 hover:text-white transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-          <iframe 
-            src={`http://localhost:5000/files/view/${encodeURIComponent(viewingPdfName)}`} 
-            className="flex-1 w-full border-0 bg-white" 
-            title="PDF Viewer"
-          />
-        </div>
-      )}
     </div>
   );
 };

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { MapPin, CheckCircle2, XCircle } from 'lucide-react';
 
-const MCQCard = ({ quizData, onScoreUpdate, onCitationClick }) => {
+const MCQCard = ({ quizData, onScoreUpdate, onCitationClick, questionNumber, totalQuestions }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [result, setResult] = useState(null); // 'correct' | 'wrong'
+  const [result, setResult] = useState(null);
 
   if (!quizData || !quizData.options) return null;
 
@@ -17,12 +17,9 @@ const MCQCard = ({ quizData, onScoreUpdate, onCitationClick }) => {
   const handleSubmit = () => {
     if (!selectedOption) return;
     setIsSubmitted(true);
-
     const isCorrect = selectedOption === correctAnswer;
     setResult(isCorrect ? 'correct' : 'wrong');
-
     if (onScoreUpdate) {
-      // Pass source (citation/filename) so analytics knows which document
       onScoreUpdate(
         quizData.topic || 'General',
         isCorrect,
@@ -32,56 +29,104 @@ const MCQCard = ({ quizData, onScoreUpdate, onCitationClick }) => {
   };
 
   const handleCitationClick = () => {
-    const ctx = {
-      citation: quizData.citation,
-      topic: quizData.topic,
-      question: quizData.question,
-    };
-    console.log('[Citation Context]', ctx);
+    const ctx = { citation: quizData.citation, topic: quizData.topic, question: quizData.question };
     if (onCitationClick) onCitationClick(ctx);
   };
 
-  // Difficulty badge color
-  const difficultyColor = {
-    Easy: 'text-green-400 border-green-900/50 bg-green-500/10',
-    Medium: 'text-cyan-400 border-cyan-900/50 bg-cyan-500/10',
-    Hard: 'text-red-400 border-red-900/50 bg-red-500/10',
-  }[quizData.difficulty] || 'text-slate-400 border-slate-700/50';
+  const diffColors = {
+    Easy: { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.25)', text: '#4ade80' },
+    Medium: { bg: 'rgba(6,182,212,0.12)', border: 'rgba(6,182,212,0.25)', text: '#22d3ee' },
+    Hard: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)', text: '#f87171' },
+  };
+
+  const diff = diffColors[quizData.difficulty] || diffColors.Medium;
+
+  const cardBorder = isSubmitted
+    ? result === 'correct'
+      ? 'rgba(34,197,94,0.25)'
+      : 'rgba(239,68,68,0.25)'
+    : 'var(--border-glass)';
+
+  const cardBg = isSubmitted
+    ? result === 'correct'
+      ? 'rgba(34,197,94,0.05)'
+      : 'rgba(239,68,68,0.05)'
+    : 'var(--bg-card)';
 
   return (
-    <div className={`rounded-2xl border p-5 mb-4 transition-all duration-300 ${
-      isSubmitted
-        ? result === 'correct'
-          ? 'bg-green-500/5 border-green-500/20'
-          : 'bg-red-500/5 border-red-500/20'
-        : 'bg-slate-800/30 border-slate-700/50'
-    }`}>
+    <div
+      className={`glass-card ${isSubmitted && result === 'wrong' ? 'animate-shake' : 'animate-fade-in-up'}`}
+      style={{
+        padding: 22, marginBottom: 16,
+        background: cardBg, borderColor: cardBorder,
+        backdropFilter: 'blur(16px) saturate(1.4)',
+        transition: 'all var(--transition-base)',
+      }}
+    >
+      {/* Progress indicator */}
+      {questionNumber && totalQuestions && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
+              Question {questionNumber} / {totalQuestions}
+            </span>
+          </div>
+          <div style={{ height: 2, borderRadius: 1, background: 'var(--border-glass)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 1,
+              background: 'linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))',
+              width: `${(questionNumber / totalQuestions) * 100}%`,
+              transition: 'width 0.5s ease',
+            }} />
+          </div>
+        </div>
+      )}
 
-      {/* ── Header ── */}
-      <div className="flex justify-between items-start mb-4 gap-4">
-        <h4 className="text-[14px] font-bold text-slate-200 leading-snug">{quizData.question}</h4>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 12 }}>
+        <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.5, margin: 0 }}>
+          {quizData.question}
+        </h4>
         {quizData.difficulty && (
-          <span className={`text-[9px] px-2 py-1 rounded font-bold tracking-widest uppercase border whitespace-nowrap ${difficultyColor}`}>
+          <span style={{
+            fontSize: 9, padding: '3px 10px', borderRadius: 'var(--radius-sm)',
+            fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase',
+            background: diff.bg, border: `1px solid ${diff.border}`, color: diff.text,
+            whiteSpace: 'nowrap', flexShrink: 0,
+          }}>
             {quizData.difficulty}
           </span>
         )}
       </div>
 
-      {/* ── Options ── */}
-      <div className="space-y-2 mb-4">
+      {/* Options */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {quizData.options.map((option, idx) => {
-          let optionClass = "border-slate-700/50 hover:bg-slate-700/30 text-slate-300";
+          let optBg = 'transparent';
+          let optBorder = 'var(--border-glass)';
+          let optColor = 'var(--text-secondary)';
+          let optOpacity = 1;
+          let optShadow = 'none';
 
           if (isSubmitted) {
             if (option === correctAnswer) {
-              optionClass = "bg-green-500/20 border-green-500/50 text-green-400 font-bold shadow-[0_0_10px_rgba(34,197,94,0.1)]";
+              optBg = 'rgba(34,197,94,0.15)';
+              optBorder = 'rgba(34,197,94,0.4)';
+              optColor = '#4ade80';
+              optShadow = 'var(--shadow-glow-green)';
             } else if (option === selectedOption && option !== correctAnswer) {
-              optionClass = "bg-red-500/20 border-red-500/50 text-red-400 line-through opacity-70";
+              optBg = 'rgba(239,68,68,0.15)';
+              optBorder = 'rgba(239,68,68,0.4)';
+              optColor = '#f87171';
+              optShadow = 'var(--shadow-glow-red)';
             } else {
-              optionClass = "border-slate-800 text-slate-500 opacity-30";
+              optOpacity = 0.35;
             }
           } else if (selectedOption === option) {
-            optionClass = "bg-cyan-500/20 border-cyan-500/50 text-cyan-300";
+            optBg = 'var(--accent-cyan-glow)';
+            optBorder = 'rgba(6,182,212,0.4)';
+            optColor = 'var(--accent-cyan)';
+            optShadow = 'var(--shadow-glow-cyan)';
           }
 
           return (
@@ -89,58 +134,110 @@ const MCQCard = ({ quizData, onScoreUpdate, onCitationClick }) => {
               key={idx}
               onClick={() => handleOptionClick(option)}
               disabled={isSubmitted}
-              className={`w-full text-left px-4 py-3 rounded-xl border text-[13px] transition-all ${optionClass}`}
+              style={{
+                width: '100%', textAlign: 'left',
+                padding: '12px 16px', borderRadius: 'var(--radius-md)',
+                background: optBg, border: `1px solid ${optBorder}`,
+                color: optColor, fontSize: 13, cursor: isSubmitted ? 'default' : 'pointer',
+                opacity: optOpacity, boxShadow: optShadow,
+                transition: 'all var(--transition-base)',
+                display: 'flex', alignItems: 'center', gap: 8,
+                textDecoration: isSubmitted && option === selectedOption && option !== correctAnswer ? 'line-through' : 'none',
+              }}
+              onMouseEnter={e => {
+                if (!isSubmitted && selectedOption !== option) {
+                  e.currentTarget.style.background = 'var(--bg-card-hover)';
+                  e.currentTarget.style.borderColor = 'var(--border-hover)';
+                  e.currentTarget.style.transform = 'translateX(4px)';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!isSubmitted && selectedOption !== option) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'var(--border-glass)';
+                  e.currentTarget.style.transform = 'translateX(0)';
+                }
+              }}
             >
-              <span className="mr-2 text-slate-500 text-[11px] font-bold">
-                {String.fromCharCode(65 + idx)}.
+              <span style={{
+                width: 22, height: 22, borderRadius: 'var(--radius-full)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 800, flexShrink: 0,
+                background: selectedOption === option && !isSubmitted ? 'var(--accent-cyan)' : 'var(--bg-card)',
+                color: selectedOption === option && !isSubmitted ? '#000' : 'var(--text-muted)',
+                border: `1px solid ${selectedOption === option && !isSubmitted ? 'transparent' : 'var(--border-glass)'}`,
+                transition: 'all var(--transition-base)',
+              }}>
+                {String.fromCharCode(65 + idx)}
               </span>
-              {option}
+              <span>{option}</span>
             </button>
           );
         })}
       </div>
 
-      {/* ── Submit / Result ── */}
+      {/* Submit / Result */}
       {!isSubmitted ? (
         <button
           onClick={handleSubmit}
           disabled={!selectedOption}
-          className="w-full bg-cyan-600 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-cyan-500"
+          style={{
+            width: '100%', padding: '13px 0', borderRadius: 'var(--radius-lg)',
+            background: selectedOption ? 'var(--accent-cyan)' : 'var(--bg-card)',
+            color: selectedOption ? '#000' : 'var(--text-muted)',
+            border: `1px solid ${selectedOption ? 'transparent' : 'var(--border-glass)'}`,
+            fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em',
+            cursor: selectedOption ? 'pointer' : 'not-allowed',
+            transition: 'all var(--transition-base)',
+          }}
+          onMouseEnter={e => { if (selectedOption) e.currentTarget.style.transform = 'scale(1.01)'; }}
+          onMouseLeave={e => { if (selectedOption) e.currentTarget.style.transform = 'scale(1)'; }}
         >
           Check Answer
         </button>
       ) : (
-        <div className="animate-fade-in space-y-3">
+        <div className="animate-fade-in-up" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Result badge */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider ${
-            result === 'correct' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-          }`}>
-            {result === 'correct' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-            <span>{result === 'correct' ? 'Correct!' : 'Wrong!'}</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px', borderRadius: 'var(--radius-md)',
+            fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em',
+            background: result === 'correct' ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+            color: result === 'correct' ? '#4ade80' : '#f87171',
+          }}>
+            {result === 'correct' ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+            <span>{result === 'correct' ? 'Correct!' : 'Incorrect'}</span>
             {result === 'wrong' && (
-              <span className="text-slate-400 font-normal normal-case tracking-normal">
-                Correct: <strong className="text-green-400">{correctAnswer}</strong>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+                — Correct: <strong style={{ color: '#4ade80' }}>{correctAnswer}</strong>
               </span>
             )}
           </div>
 
           {/* Explanation */}
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
-            <p className="text-[12px] text-slate-300 leading-relaxed italic">
-              <span className="font-bold text-cyan-500 not-italic mr-2">Explanation:</span>
+          <div className="glass-card" style={{ padding: 16, borderRadius: 'var(--radius-md)' }}>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, fontStyle: 'italic', margin: 0 }}>
+              <span style={{ fontWeight: 800, color: 'var(--accent-cyan)', fontStyle: 'normal', marginRight: 6 }}>
+                Explanation:
+              </span>
               {quizData.explanation || "No further explanation provided."}
             </p>
 
-            {/* Citation — clickable */}
             {quizData.citation && (
               <button
                 onClick={handleCitationClick}
-                className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-cyan-400 transition-colors group"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, marginTop: 10,
+                  fontSize: 10, color: 'var(--text-muted)', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.15em',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  transition: 'color var(--transition-fast)',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--accent-cyan)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
               >
                 <MapPin size={11} />
-                <span className="font-bold uppercase tracking-widest group-hover:underline">
-                  {quizData.citation}
-                </span>
+                <span style={{ textDecoration: 'none' }}>{quizData.citation}</span>
               </button>
             )}
           </div>

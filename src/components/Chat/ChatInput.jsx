@@ -1,63 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { BookOpen, FileText, Search, ChevronDown, Paperclip, ArrowUp, CornerDownLeft } from 'lucide-react';
+import { BookOpen, FileText, Search, Paperclip, ArrowUp, CornerDownLeft } from 'lucide-react';
 
-const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loading, user, uploading, onFileUpload, onAuthRequired }) => {
-  const [isModeOpen, setIsModeOpen] = useState(false);
+const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loading, user, uploading, uploadedFiles, onFileUpload, onAuthRequired }) => {
   const [cmdMenuOpen, setCmdMenuOpen] = useState(false);
-  const modeDropdownRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Close mode dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target)) {
-        setIsModeOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Open/close command menu based on question starting with '/'
   useEffect(() => {
     setCmdMenuOpen(question.trim().startsWith('/'));
   }, [question]);
 
   const modes = {
-    study: {
-      label: 'Study Mode',
-      icon: <BookOpen size={12} />,
-      desc: 'Normal chat with your PDFs',
-      color: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/10',
-      border: 'border-cyan-500/20',
-    },
-    test: {
-      label: 'Assessment',
-      icon: <FileText size={12} />,
-      desc: 'MCQ-based assessment engine',
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-      border: 'border-purple-500/20',
-    },
-    research: {
-      label: 'Research',
-      icon: <Search size={12} />,
-      desc: 'Strict mode with deep citations',
-      color: 'text-emerald-400',
-      bgColor: 'bg-emerald-500/10',
-      border: 'border-emerald-500/20',
-    },
-  };
-
-  const handleModeChange = (key) => {
-    if (key === 'test' && !user) {
-      setIsModeOpen(false);
-      if (onAuthRequired) onAuthRequired();
-      return;
-    }
-    setMode(key);
-    setIsModeOpen(false);
+    study: { label: 'Study Mode', icon: <BookOpen size={12} />, color: 'var(--accent-cyan)' },
+    test: { label: 'Assessment', icon: <FileText size={12} />, color: 'var(--accent-purple)' },
+    research: { label: 'Research', icon: <Search size={12} />, color: 'var(--accent-emerald)' },
   };
 
   const handleKeyDown = (e) => {
@@ -66,26 +21,23 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
       setCmdMenuOpen(false);
       handleAsk();
     }
-    if (e.key === 'Escape') {
-      setCmdMenuOpen(false);
-    }
+    if (e.key === 'Escape') setCmdMenuOpen(false);
   };
 
-  // Mode-aware command lists
   const studyCommands = [
-    { cmd: '/help',    desc: 'Show all commands' },
+    { cmd: '/help', desc: 'Show all commands' },
     { cmd: '/summary', desc: 'Summarize active document' },
-    { cmd: '/files',   desc: 'List uploaded files' },
-    { cmd: '/reset',   desc: 'Clear chat' },
+    { cmd: '/files', desc: 'List uploaded files' },
+    { cmd: '/reset', desc: 'Clear chat' },
   ];
   const testCommands = [
-    { cmd: '/help',   desc: 'Show all commands' },
-    { cmd: '/start',  desc: '/start [filename] — begin test' },
-    { cmd: '/10',     desc: 'Generate 10 MCQs' },
-    { cmd: '/weak',   desc: 'Target your weak topics' },
-    { cmd: '/stats',  desc: 'View performance report' },
-    { cmd: '/study',  desc: 'Switch to Study Mode' },
-    { cmd: '/reset',  desc: 'Clear chat' },
+    { cmd: '/help', desc: 'Show all commands' },
+    { cmd: '/start', desc: '/start [filename] — begin test' },
+    { cmd: '/10', desc: 'Generate 10 MCQs' },
+    { cmd: '/weak', desc: 'Target your weak topics' },
+    { cmd: '/stats', desc: 'View performance report' },
+    { cmd: '/study', desc: 'Switch to Study Mode' },
+    { cmd: '/reset', desc: 'Clear chat' },
   ];
 
   const allCmds = currentMode === 'test' ? testCommands : studyCommands;
@@ -106,118 +58,141 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
     }
     setQuestion(cmd);
     setCmdMenuOpen(false);
-    // Defer to next tick so setQuestion has settled
     setTimeout(() => handleAsk(), 0);
   };
 
   const active = modes[currentMode] || modes.study;
 
-  return (
-    <div className="w-full px-4 md:px-6 pb-6 pt-2">
-      <div className="relative flex flex-col bg-slate-900/60 border border-slate-800/50 rounded-[28px] p-2 focus-within:border-slate-700/80 transition-all shadow-2xl backdrop-blur-md">
+  const getModeStyles = () => {
+    switch (currentMode) {
+      case 'test':
+        return {
+          border: '1px solid rgba(168, 85, 247, 0.3)',
+          shadow: '0 4px 20px rgba(168, 85, 247, 0.08)',
+          accent: 'var(--accent-purple)',
+          textColor: '#a855f7',
+          placeholder: "Type / for assessment commands, e.g. /start physics.pdf",
+        };
+      case 'research':
+        return {
+          border: '1px solid rgba(16, 185, 129, 0.3)',
+          shadow: '0 4px 20px rgba(16, 185, 129, 0.08)',
+          accent: 'var(--accent-emerald)',
+          textColor: 'var(--accent-emerald)',
+          placeholder: "Search queries in strict Research Mode...",
+        };
+      default:
+        return {
+          border: '1px solid rgba(6, 182, 212, 0.3)',
+          shadow: '0 4px 20px rgba(6, 182, 212, 0.08)',
+          accent: 'var(--accent-cyan)',
+          textColor: 'var(--accent-cyan)',
+          placeholder: "Ask anything... or type / for commands",
+        };
+    }
+  };
+  const modeStyle = getModeStyles();
 
-        {/* ── COMMAND SUGGESTION MENU (floating above input) ── */}
+  return (
+    <div style={{ width: '100%', padding: '8px 16px 20px' }}>
+      <div className="glass-input" style={{
+        position: 'relative', display: 'flex', flexDirection: 'column',
+        padding: 8, boxShadow: `var(--shadow-lg), ${modeStyle.shadow}`,
+        border: modeStyle.border,
+        transition: 'all 0.5s ease-in-out',
+      }}>
+
+        {/* Command Suggestion Menu */}
         {cmdMenuOpen && filteredCmds.length > 0 && (
-          <div className="absolute bottom-full left-0 right-0 mb-3 mx-2 bg-[#0F172A] border border-slate-700/60 rounded-2xl p-2 shadow-[0_25px_60px_rgba(0,0,0,0.6)] z-50">
-            <div className="flex items-center gap-1.5 px-3 py-2 border-b border-slate-800/60 mb-1">
-              {currentMode === 'test' ? <FileText size={12} className="text-slate-500" /> : <BookOpen size={12} className="text-slate-500" />}
-              <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">
+          <div className="animate-fade-in-down" style={{
+            position: 'absolute', bottom: '100%', left: 0, right: 0,
+            marginBottom: 10, marginLeft: 8, marginRight: 8,
+            background: 'var(--bg-glass)', backdropFilter: 'blur(24px) saturate(1.5)',
+            border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-lg)',
+            padding: 6, boxShadow: 'var(--shadow-lg)', zIndex: 50,
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 12px', borderBottom: '1px solid var(--border-glass)', marginBottom: 4,
+            }}>
+              {currentMode === 'test' ? <FileText size={11} style={{ color: 'var(--text-muted)' }} /> : <BookOpen size={11} style={{ color: 'var(--text-muted)' }} />}
+              <span style={{ fontSize: 8, fontWeight: 900, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
                 {currentMode === 'test' ? 'Assessment Commands' : 'Study Commands'}
-              </p>
+              </span>
             </div>
             {filteredCmds.map((c) => (
-              <div key={c.cmd} className="flex items-center group">
+              <div key={c.cmd} style={{ display: 'flex', alignItems: 'center' }}>
                 <button
                   onMouseDown={(e) => { e.preventDefault(); selectCommand(c.cmd); }}
-                  className="flex-1 flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-800/60 transition-all text-left"
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    transition: 'all var(--transition-fast)', textAlign: 'left',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
-                  <span className={`font-bold text-[12px] ${active.color}`}>{c.cmd}</span>
-                  <span className="text-slate-500 text-[10px] font-medium">{c.desc}</span>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: active.color }}>{c.cmd}</span>
+                  <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' }}>{c.desc}</span>
                 </button>
-                {/* Execute button (run immediately) */}
                 <button
                   onMouseDown={(e) => { e.preventDefault(); executeCommand(c.cmd); }}
                   title="Run this command"
-                  className="opacity-0 group-hover:opacity-100 mr-2 px-2 py-1 rounded-lg bg-slate-700/60 hover:bg-slate-700 transition-all text-slate-400 font-bold uppercase flex items-center gap-1"
+                  style={{
+                    opacity: 0, marginRight: 4, padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                    color: 'var(--text-muted)', fontWeight: 700, fontSize: 9, textTransform: 'uppercase',
+                    transition: 'opacity var(--transition-fast)',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '0'}
                 >
-                  <CornerDownLeft size={10} /> <span className="text-[9px]">Run</span>
+                  <CornerDownLeft size={10} /> Run
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        {/* ── TOP BAR: Mode selector + status ── */}
-        <div className="flex items-center gap-2 px-3 pb-2 pt-1 border-b border-slate-800/30 mb-1">
-          <div className="relative" ref={modeDropdownRef}>
-            <button
-              onClick={() => setIsModeOpen(!isModeOpen)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all hover:bg-slate-800 ${active.bgColor} ${active.border}`}
-            >
-              <span className="text-[10px] animate-pulse">●</span>
-              <span className={`text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-1 ${active.color}`}>
-                {active.icon} {active.label}
-              </span>
-              <ChevronDown size={10} className="text-slate-500 ml-1" />
-            </button>
-
-            {isModeOpen && (
-              <div className="absolute bottom-full left-0 mb-3 w-64 bg-[#0F172A] border border-slate-800 rounded-2xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50">
-                <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest px-3 py-2">Select Engine</p>
-                {Object.keys(modes).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => handleModeChange(key)}
-                    className={`w-full flex flex-col items-start gap-1 p-3 rounded-xl transition-all mb-1 ${
-                      currentMode === key ? 'bg-slate-800/80 ring-1 ring-slate-700' : 'hover:bg-slate-800/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`${modes[key].color}`}>{modes[key].icon}</span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${modes[key].color}`}>
-                        {modes[key].label}
-                      </span>
-                      {key === 'test' && !user && (
-                        <span className="text-[8px] text-yellow-500 font-bold uppercase">● Pro</span>
-                      )}
-                    </div>
-                    <span className="text-[9px] text-slate-500 font-medium lowercase tracking-tight">
-                      {modes[key].desc}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="h-4 w-px bg-slate-800 mx-1"></div>
-          <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter italic">
-            {loading ? "Neural Link Active..." : "Second Brain Sync'd"}
-          </span>
-        </div>
-
-        {/* ── INPUT ROW ── */}
-        <div className="flex items-center gap-3 px-3 py-1">
-
-          {/* + File Upload Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px' }}>
+          {/* Upload Button */}
           <label
             title="Upload a PDF"
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer select-none ${
-              uploading
-                ? 'bg-slate-800 text-slate-600 opacity-50 cursor-not-allowed'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 hover:shadow-[0_0_12px_rgba(6,182,212,0.3)]'
-            }`}
+            style={{
+              width: 40, height: 40, borderRadius: 'var(--radius-full)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, cursor: uploading ? 'not-allowed' : 'pointer',
+              background: 'var(--bg-card)', border: '1px solid var(--border-glass)',
+              color: uploading ? 'var(--text-faint)' : 'var(--text-secondary)',
+              transition: 'all var(--transition-base)',
+              ...(uploading ? {} : {}),
+            }}
+            onMouseEnter={e => {
+              if (!uploading) {
+                e.currentTarget.style.color = 'var(--accent-cyan)';
+                e.currentTarget.style.borderColor = 'var(--border-accent)';
+                e.currentTarget.style.boxShadow = 'var(--shadow-glow-cyan)';
+              }
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = uploading ? 'var(--text-faint)' : 'var(--text-secondary)';
+              e.currentTarget.style.borderColor = 'var(--border-glass)';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           >
             {uploading ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%',
+                border: '2px solid var(--border-glass)', borderTopColor: 'var(--accent-cyan)',
+                animation: 'spinSlow 0.8s linear infinite',
+              }} />
             ) : (
               <Paperclip size={18} />
             )}
             <input
-              type="file"
-              className="hidden"
-              accept=".pdf"
-              disabled={uploading}
+              type="file" style={{ display: 'none' }} accept=".pdf" disabled={uploading}
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
                   onFileUpload(e.target.files[0]);
@@ -233,12 +208,14 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              currentMode === 'test'
-                ? "Type / for commands, e.g. /start physics.pdf"
-                : "Ask anything... or type / for commands"
-            }
-            className="flex-1 bg-transparent border-none outline-none text-[13px] text-slate-200 placeholder:text-slate-600 resize-none max-h-32 py-3 px-1 no-scrollbar"
+            placeholder={modeStyle.placeholder}
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              fontSize: 13, color: 'var(--text-primary)',
+              resize: 'none', maxHeight: 128, padding: '10px 4px',
+              fontFamily: 'Inter, sans-serif', lineHeight: 1.5,
+            }}
+            className="no-scrollbar"
             rows="1"
             disabled={loading}
           />
@@ -247,14 +224,34 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
           <button
             onClick={() => { setCmdMenuOpen(false); handleAsk(); }}
             disabled={loading || !question.trim()}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg shrink-0 ${
-              loading || !question.trim()
-                ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
-                : 'bg-cyan-600 text-white hover:bg-cyan-500 hover:scale-105 active:scale-95'
-            }`}
+            style={{
+              width: 40, height: 40, borderRadius: 'var(--radius-full)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, border: 'none', cursor: loading || !question.trim() ? 'not-allowed' : 'pointer',
+              background: loading || !question.trim() ? 'var(--bg-card)' : modeStyle.accent,
+              color: loading || !question.trim() ? 'var(--text-faint)' : '#000',
+              transition: 'all var(--transition-base)',
+              boxShadow: loading || !question.trim() ? 'none' : `0 4px 12px ${modeStyle.textColor}4D`,
+            }}
+            onMouseEnter={e => {
+              if (!loading && question.trim()) {
+                e.currentTarget.style.transform = 'scale(1.08)';
+                e.currentTarget.style.boxShadow = `0 6px 20px ${modeStyle.textColor}66`;
+              }
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'scale(1)';
+              if (!loading && question.trim()) {
+                e.currentTarget.style.boxShadow = `0 4px 12px ${modeStyle.textColor}4D`;
+              }
+            }}
           >
             {loading ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%',
+                border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#fff',
+                animation: 'spinSlow 0.8s linear infinite',
+              }} />
             ) : (
               <ArrowUp size={20} strokeWidth={3} />
             )}
@@ -262,7 +259,10 @@ const ChatInput = ({ question, setQuestion, handleAsk, currentMode, setMode, loa
         </div>
       </div>
 
-      <p className="text-center text-[9px] text-slate-700 mt-3 font-medium uppercase tracking-[0.2em]">
+      <p style={{
+        textAlign: 'center', fontSize: 9, color: 'var(--text-faint)',
+        marginTop: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.2em',
+      }}>
         AI can make mistakes. Verify important information.
       </p>
     </div>

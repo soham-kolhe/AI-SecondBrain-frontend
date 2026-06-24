@@ -15,6 +15,7 @@ export const ChatProvider = ({ children }) => {
   const [flashcards, setFlashcards] = useState([]);
   // uploadedFiles = files active in THIS session only (not all user files)
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [allUserFiles, setAllUserFiles] = useState([]);
   const [chatSessions, setChatSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [weakTopics, setWeakTopics] = useState([]);
@@ -32,6 +33,7 @@ export const ChatProvider = ({ children }) => {
     if (user) {
       fetchSessions();
       fetchWeakTopics();
+      fetchAllUserFiles();
       // Always start fresh on login/reload — don't auto-load last session
       resetToFreshChat();
       // Mark as first login so reminder fires once
@@ -41,6 +43,7 @@ export const ChatProvider = ({ children }) => {
       resetToFreshChat();
       setChatSessions([]);
       setWeakTopics([]);
+      setAllUserFiles([]);
       setReminderDismissed(false);
       setShowReminder(false);
     }
@@ -74,6 +77,14 @@ export const ChatProvider = ({ children }) => {
       const res = await api.get("/analytics/weak-topics").catch(() => null);
       if (res && res.data) setWeakTopics(res.data);
     } catch (err) { console.error("Weak topics error", err); }
+  };
+
+  const fetchAllUserFiles = async () => {
+    if (!user) return;
+    try {
+      const res = await api.get("/files");
+      setAllUserFiles(res.data);
+    } catch (err) { console.error("All files fetch error", err); }
   };
 
   const saveCurrentSession = async (h, s, f, activeId, sessionUploadedFiles) => {
@@ -187,6 +198,7 @@ export const ChatProvider = ({ children }) => {
         summary, setSummary,
         flashcards, setFlashcards,
         uploadedFiles, setUploadedFiles,
+        allUserFiles, setAllUserFiles,
         chatSessions, setChatSessions,
         activeSessionId, setActiveSessionId,
         weakTopics, setWeakTopics,
@@ -200,6 +212,7 @@ export const ChatProvider = ({ children }) => {
         deleteSession,
         shareSession,
         fetchSessions,
+        fetchAllUserFiles,
       }}
     >
       {children}
