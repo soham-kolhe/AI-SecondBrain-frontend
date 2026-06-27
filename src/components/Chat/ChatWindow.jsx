@@ -3,9 +3,28 @@ import { Link as LinkIcon } from "lucide-react";
 import MCQCard from "../Sidebar/MCQCard";
 import FlashcardStack from "./FlashcardStack";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import QuizPanel from "./QuizPanel";
 
 const markdownComponents = {
   p: ({ children }) => <p style={{ marginBottom: 8, lineHeight: 1.7, color: 'var(--text-secondary)' }}>{children}</p>,
+  a: ({ href, children }) => (
+    <a 
+      href={href} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      style={{ 
+        color: 'var(--accent-cyan)', 
+        fontWeight: 700, 
+        textDecoration: 'underline',
+        transition: 'color var(--transition-fast)'
+      }}
+      onMouseEnter={e => e.currentTarget.style.color = 'var(--border-accent)'}
+      onMouseLeave={e => e.currentTarget.style.color = 'var(--accent-cyan)'}
+    >
+      {children}
+    </a>
+  ),
   strong: ({ children }) => <strong style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{children}</strong>,
   ul: ({ children }) => <ul style={{ listStyle: 'disc', paddingLeft: 20, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-secondary)' }}>{children}</ul>,
   ol: ({ children }) => <ol style={{ listStyle: 'decimal', paddingLeft: 20, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4, color: 'var(--text-secondary)' }}>{children}</ol>,
@@ -128,7 +147,7 @@ const ChatWindow = ({
                   <div style={{ whiteSpace: 'pre-wrap' }}>{chat.text}</div>
                 ) : (
                   <div className="markdown-content">
-                    <ReactMarkdown components={markdownComponents}>
+                    <ReactMarkdown rehypePlugins={[rehypeRaw]} components={markdownComponents}>
                       {chat.text}
                     </ReactMarkdown>
                   </div>
@@ -143,6 +162,18 @@ const ChatWindow = ({
                   }}>
                     <button
                       onClick={() => onCitationClick && onCitationClick(chat.sources[0])}
+                      title={chat.sources.map(src => {
+                        if (src.startsWith('http')) {
+                          try {
+                            const urlObj = new URL(src);
+                            // Extract title if we can or just show domain/clean string
+                            return `YouTube Link: ${src}`;
+                          } catch (e) {
+                            return `YouTube Link: ${src}`;
+                          }
+                        }
+                        return src;
+                      }).join('\n')}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
                         fontSize: 10, padding: '5px 12px', borderRadius: 'var(--radius-sm)',
@@ -161,7 +192,7 @@ const ChatWindow = ({
                       }}
                     >
                       <LinkIcon size={12} />
-                      <span>+{chat.sources.length} source{chat.sources.length > 1 ? 's' : ''}</span>
+                      <span>+{chat.sources.length}</span>
                     </button>
                   </div>
                 )}
@@ -180,12 +211,12 @@ const ChatWindow = ({
                   <div style={{ height: 1, flex: 1, background: 'var(--border-glass)' }} />
                 </div>
 
-                {/* In test mode with enough flashcards: show FlashcardStack */}
-                {currentMode === 'test' && chat.flashcards.length >= 3 ? (
-                  <FlashcardStack
-                    flashcards={chat.flashcards}
+                {/* In test mode: show QuizPanel */}
+                {currentMode === 'test' ? (
+                  <QuizPanel
+                    mcqs={chat.flashcards}
                     onScoreUpdate={onScoreUpdate}
-                    onCitationClick={(ctx) => console.log('[FlashCard Citation]', ctx)}
+                    onCitationClick={(cit) => onCitationClick && onCitationClick(cit)}
                   />
                 ) : (
                   /* Otherwise show inline MCQ cards */
@@ -196,7 +227,7 @@ const ChatWindow = ({
                       onScoreUpdate={onScoreUpdate}
                       questionNumber={i + 1}
                       totalQuestions={chat.flashcards.length}
-                      onCitationClick={(ctx) => console.log('[MCQ Citation]', ctx)}
+                      onCitationClick={(ctx) => onCitationClick && onCitationClick(ctx.citation)}
                     />
                   ))
                 )}

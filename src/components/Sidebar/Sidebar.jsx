@@ -210,31 +210,7 @@ const Sidebar = ({
                   </button>
                 );
               })}
-              {!isExpanded && (
-                <>
-                  <div style={{ margin: '4px 0', height: 1, background: 'var(--border-glass)' }} />
-                  <button
-                    onClick={() => setIsRecentsPopoverOpen(!isRecentsPopoverOpen)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center',
-                      height: 40,
-                      borderRadius: 'var(--radius-md)',
-                      background: isRecentsPopoverOpen ? 'var(--bg-card)' : 'transparent',
-                      border: isRecentsPopoverOpen ? '1px solid var(--border-glass)' : '1px solid transparent',
-                      cursor: 'pointer', color: isRecentsPopoverOpen ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                      transition: 'all var(--transition-base)',
-                    }}
-                    onMouseEnter={e => { if (!isRecentsPopoverOpen) { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
-                    onMouseLeave={e => { if (!isRecentsPopoverOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
-                    title="Recents"
-                  >
-                    <span style={{ color: isRecentsPopoverOpen ? 'var(--accent-cyan)' : 'var(--text-muted)', flexShrink: 0 }}>
-                      <MessageSquare size={14} />
-                    </span>
-                  </button>
-                </>
-              )}
+
             </div>
           )}
         </div>
@@ -292,121 +268,159 @@ const Sidebar = ({
           </div>
         )}
 
-        {/* Chat List */}
-        <div className="thin-scrollbar" style={{ flex: 1, overflowY: 'auto', padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {isExpanded && Array.isArray(chatSessions) && chatSessions.map((session) => (
-            <div
-              key={session._id}
+        {/* Recent Chats Section */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          borderTop: '1px solid var(--border-glass)',
+          padding: '12px 12px',
+        }}>
+          {isExpanded ? (
+            <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: 8, padding: '0 4px' }}>
+              Recent
+            </span>
+          ) : (
+            <button
+              onClick={() => setIsRecentsPopoverOpen(!isRecentsPopoverOpen)}
               style={{
-                display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-md)',
-                background: activeSessionId === session._id ? 'var(--bg-card)' : 'transparent',
-                transition: 'all var(--transition-base)', position: 'relative',
+                width: '100%', display: 'flex', alignItems: 'center',
+                justifyContent: 'center',
+                height: 40,
+                borderRadius: 'var(--radius-md)',
+                background: isRecentsPopoverOpen ? 'var(--bg-card)' : 'transparent',
+                border: isRecentsPopoverOpen ? '1px solid var(--border-glass)' : '1px solid transparent',
+                cursor: 'pointer', color: isRecentsPopoverOpen ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+                transition: 'all var(--transition-base)',
               }}
-              onMouseEnter={e => { if (activeSessionId !== session._id) e.currentTarget.style.background = 'var(--bg-card)'; }}
-              onMouseLeave={e => { if (activeSessionId !== session._id) e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => { if (!isRecentsPopoverOpen) { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
+              onMouseLeave={e => { if (!isRecentsPopoverOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+              title="Recent Chats"
             >
-              {renamingId === session._id ? (
-                <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
-                  <input
-                    ref={renameInputRef}
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onBlur={commitRename}
-                    onKeyDown={handleRenameKey}
-                    style={{
-                      flex: 1, background: 'var(--bg-card)', color: 'var(--text-primary)',
-                      fontSize: 12, fontWeight: 500, borderRadius: 'var(--radius-sm)',
-                      padding: '6px 10px', outline: 'none',
-                      border: '1px solid var(--border-accent)', margin: 4,
-                    }}
-                    maxLength={60}
-                  />
-                  <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-cyan)' }}>
-                    <Pencil size={14} />
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => onSelectSession(session._id)}
+              <span style={{ color: isRecentsPopoverOpen ? 'var(--accent-cyan)' : 'var(--text-muted)', flexShrink: 0 }}>
+                <MessageSquare size={14} />
+              </span>
+            </button>
+          )}
+
+          {isExpanded && (
+            <div className="thin-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, padding: '0 4px' }}>
+              {Array.isArray(chatSessions) && chatSessions.map((session) => (
+                <div
+                  key={session._id}
                   style={{
-                    flex: 1, display: 'flex', alignItems: 'center', textAlign: 'left',
-                    padding: '10px 12px', background: 'none', border: 'none',
-                    fontSize: 12, fontWeight: activeSessionId === session._id ? 700 : 500,
-                    color: activeSessionId === session._id ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                    cursor: 'pointer', transition: 'color var(--transition-fast)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    display: 'flex', alignItems: 'center', borderRadius: 'var(--radius-md)',
+                    background: activeSessionId === session._id ? 'var(--bg-card)' : 'transparent',
+                    transition: 'all var(--transition-base)', position: 'relative',
                   }}
+                  onMouseEnter={e => { if (activeSessionId !== session._id) e.currentTarget.style.background = 'var(--bg-card)'; }}
+                  onMouseLeave={e => { if (activeSessionId !== session._id) e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.title}</span>
-                </button>
-              )}
-
-              {/* Three-dot menu */}
-              {renamingId !== session._id && (
-                <div style={{ position: 'relative' }} ref={menuOpenId === session._id ? menuRef : null}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === session._id ? null : session._id); }}
-                    style={{
-                      opacity: 0, marginRight: 8, width: 28, height: 28,
-                      borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'transparent', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-muted)', transition: 'all var(--transition-fast)',
-                    }}
-                    className="session-menu-btn"
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                  >
-                    <MoreVertical size={14} />
-                  </button>
-
-                  {menuOpenId === session._id && (
-                    <div className="animate-scale-in" style={{
-                      position: 'absolute', right: 0, top: '100%', marginTop: 4,
-                      width: 160, background: 'var(--bg-glass)', backdropFilter: 'blur(24px)',
-                      border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)',
-                      boxShadow: 'var(--shadow-lg)', zIndex: 100, padding: 4, overflow: 'hidden',
-                    }}>
-                      {[
-                        { label: 'Rename', icon: <Pencil size={12} />, onClick: () => startRename(session) },
-                        { label: 'Copy to Clipboard', icon: <LinkIcon size={12} />, onClick: () => { setMenuOpenId(null); onShare(session._id); } },
-                      ].map((item, i) => (
-                        <button
-                          key={i}
-                          onClick={item.onClick}
-                          style={{
-                            width: '100%', textAlign: 'left', padding: '10px 14px',
-                            fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            background: 'transparent', border: 'none', cursor: 'pointer',
-                            borderRadius: 'var(--radius-sm)', transition: 'all var(--transition-fast)',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                        >
-                          {item.icon} {item.label}
-                        </button>
-                      ))}
-                      <div style={{ margin: '2px 0', height: 1, background: 'var(--border-glass)' }} />
-                      <button
-                        onClick={() => { setMenuOpenId(null); onDelete(session._id); }}
+                  {renamingId === session._id ? (
+                    <div style={{ display: 'flex', width: '100%', alignItems: 'center' }}>
+                      <input
+                        ref={renameInputRef}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={commitRename}
+                        onKeyDown={handleRenameKey}
                         style={{
-                          width: '100%', textAlign: 'left', padding: '10px 14px',
-                          fontSize: 11, fontWeight: 700, color: 'var(--accent-red)',
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          background: 'transparent', border: 'none', cursor: 'pointer',
-                          borderRadius: 'var(--radius-sm)', transition: 'all var(--transition-fast)',
+                          flex: 1, background: 'var(--bg-card)', color: 'var(--text-primary)',
+                          fontSize: 12, fontWeight: 500, borderRadius: 'var(--radius-sm)',
+                          padding: '6px 10px', outline: 'none',
+                          border: '1px solid var(--border-accent)', margin: 4,
                         }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        maxLength={60}
+                      />
+                      <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-cyan)' }}>
+                        <Pencil size={14} />
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => onSelectSession(session._id)}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', textAlign: 'left',
+                        padding: '10px 12px', background: 'none', border: 'none',
+                        fontSize: 12, fontWeight: activeSessionId === session._id ? 700 : 500,
+                        color: activeSessionId === session._id ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                        cursor: 'pointer', transition: 'color var(--transition-fast)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{session.title}</span>
+                    </button>
+                  )}
+
+                  {/* Three-dot menu */}
+                  {renamingId !== session._id && (
+                    <div style={{ position: 'relative' }} ref={menuOpenId === session._id ? menuRef : null}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === session._id ? null : session._id); }}
+                        style={{
+                          opacity: 0, marginRight: 8, width: 28, height: 28,
+                          borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          color: 'var(--text-muted)', transition: 'all var(--transition-fast)',
+                        }}
+                        className="session-menu-btn"
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                       >
-                        <Trash2 size={12} /> Delete
+                        <MoreVertical size={14} />
                       </button>
+
+                      {menuOpenId === session._id && (
+                        <div className="animate-scale-in" style={{
+                          position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                          width: 160, background: 'var(--bg-glass)', backdropFilter: 'blur(24px)',
+                          border: '1px solid var(--border-glass)', borderRadius: 'var(--radius-md)',
+                          boxShadow: 'var(--shadow-lg)', zIndex: 100, padding: 4, overflow: 'hidden',
+                        }}>
+                          {[
+                            { label: 'Rename', icon: <Pencil size={12} />, onClick: () => startRename(session) },
+                            { label: 'Copy to Clipboard', icon: <LinkIcon size={12} />, onClick: () => { setMenuOpenId(null); onShare(session._id); } },
+                          ].map((item, i) => (
+                            <button
+                              key={i}
+                              onClick={item.onClick}
+                              style={{
+                                width: '100%', textAlign: 'left', padding: '10px 14px',
+                                fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                borderRadius: 'var(--radius-sm)', transition: 'all var(--transition-fast)',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                            >
+                              {item.icon} {item.label}
+                            </button>
+                          ))}
+                          <div style={{ margin: '2px 0', height: 1, background: 'var(--border-glass)' }} />
+                          <button
+                            onClick={() => { setMenuOpenId(null); onDelete(session._id); }}
+                            style={{
+                              width: '100%', textAlign: 'left', padding: '10px 14px',
+                              fontSize: 11, fontWeight: 700, color: 'var(--accent-red)',
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              background: 'transparent', border: 'none', cursor: 'pointer',
+                              borderRadius: 'var(--radius-sm)', transition: 'all var(--transition-fast)',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <Trash2 size={12} /> Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          )}
         </div>
 
 
@@ -543,7 +557,7 @@ const Sidebar = ({
           style={{
             position: 'fixed',
             left: 80,
-            top: 354,
+            bottom: 72,
             width: 280,
             background: 'var(--bg-glass)',
             backdropFilter: 'blur(24px)',

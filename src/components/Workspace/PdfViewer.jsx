@@ -17,16 +17,23 @@ const PdfViewer = ({
   const [textLoading, setTextLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedText, setSelectedText] = useState('');
+  const [aiNotes, setAiNotes] = useState([]);
+  const [aiNotesLoading, setAiNotesLoading] = useState(false);
+  const [aiNotesEnabled, setAiNotesEnabled] = useState(false);
 
   useEffect(() => {
     if (!fileName) {
       setPdfText(null);
       setSelectedText('');
+      setAiNotes([]);
+      setAiNotesEnabled(false);
       return;
     }
     
-    // Clear selection when file changes
+    // Clear selection and cached AI notes when file changes
     setSelectedText('');
+    setAiNotes([]);
+    setAiNotesEnabled(false);
     
     if (activeTab === 'text' && (!pdfText || pdfText.name !== fileName)) {
       setTextLoading(true);
@@ -41,6 +48,26 @@ const PdfViewer = ({
         });
     }
   }, [fileName, activeTab]);
+
+  const toggleAiNotes = async () => {
+    if (aiNotesEnabled) {
+      setAiNotesEnabled(false);
+      return;
+    }
+
+    setAiNotesEnabled(true);
+    if (aiNotes.length > 0) return;
+
+    setAiNotesLoading(true);
+    try {
+      const res = await api.get(`/files/ai-notes/${encodeURIComponent(fileName)}`);
+      setAiNotes(res.data.notes || []);
+    } catch (err) {
+      console.error("Failed to load AI margin notes:", err);
+    } finally {
+      setAiNotesLoading(false);
+    }
+  };
 
   const escapeRegExp = (string) => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -59,6 +86,51 @@ const PdfViewer = ({
             </mark>
           ) : part
         )}
+      </span>
+    );
+  };
+
+  const renderPageText = (pageText, pageIndex) => {
+    const pageConcepts = aiNotesEnabled 
+      ? aiNotes.filter(n => n.pages && n.pages.includes(pageIndex + 1))
+      : [];
+      
+    if (pageConcepts.length === 0) {
+      return highlightText(pageText, searchQuery);
+    }
+    
+    const phrases = pageConcepts.map(c => c.concept).filter(Boolean);
+    if (phrases.length === 0) {
+      return highlightText(pageText, searchQuery);
+    }
+    
+    phrases.sort((a, b) => b.length - a.length);
+    
+    const regexPattern = new RegExp(`(${phrases.map(escapeRegExp).join('|')})`, 'gi');
+    const parts = pageText.split(regexPattern);
+    
+    return (
+      <span>
+        {parts.map((part, i) => {
+          const lowerPart = part.toLowerCase();
+          const matchedConcept = pageConcepts.find(c => c.concept.toLowerCase() === lowerPart);
+          
+          if (matchedConcept) {
+            const isQueryMatch = searchQuery && lowerPart.includes(searchQuery.toLowerCase());
+            return (
+              <span 
+                key={i} 
+                className="ai-highlight-mark" 
+                title={matchedConcept.explanation}
+                style={isQueryMatch ? { background: 'var(--accent-cyan)', color: '#000' } : {}}
+              >
+                {part}
+              </span>
+            );
+          }
+          
+          return highlightText(part, searchQuery);
+        })}
       </span>
     );
   };
@@ -291,6 +363,46 @@ const PdfViewer = ({
                   </button>
                 )}
               </div>
+
+              {/* AI Margin Notes & Highlights Toggle */}
+              <button
+                onClick={toggleAiNotes}
+                disabled={aiNotesLoading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  background: aiNotesEnabled ? 'rgba(168, 85, 247, 0.15)' : 'var(--bg-card)',
+                  border: aiNotesEnabled ? '1px solid var(--accent-purple)' : '1px solid var(--border-glass)',
+                  color: aiNotesEnabled ? 'var(--accent-purple)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onMouseEnter={e => {
+                  if (!aiNotesEnabled) {
+                    e.currentTarget.style.color = 'var(--accent-purple)';
+                    e.currentTarget.style.borderColor = 'var(--accent-purple)';
+                    e.currentTarget.style.background = 'rgba(168, 85, 247, 0.05)';
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!aiNotesEnabled) {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.borderColor = 'var(--border-glass)';
+                    e.currentTarget.style.background = 'var(--bg-card)';
+                  }
+                }}
+                title="AI Smart Highlights & Margin Notes"
+              >
+                <Sparkles size={11} style={aiNotesEnabled ? { color: 'var(--accent-purple)' } : {}} />
+                <span>{aiNotesLoading ? 'Analyzing...' : 'AI Notes'}</span>
+              </button>
             </div>
 
             {/* Selection Quote Banner */}
@@ -388,43 +500,95 @@ const PdfViewer = ({
                   <div className="animate-shimmer" style={{ width: '85%', height: 12, borderRadius: 4 }} />
                 </div>
               ) : pdfText && pdfText.pages && pdfText.pages.length > 0 ? (
-                pdfText.pages.map((pageText, index) => (
-                  <div 
-                    key={index} 
-                    className="glass-card"
-                    style={{
-                      padding: 20,
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-glass)',
-                      background: 'var(--bg-glass)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 12,
-                    }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      borderBottom: '1px solid var(--border-glass)',
-                      paddingBottom: 6,
-                    }}>
-                      <span style={{ fontSize: 9, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
-                        PAGE {index + 1} OF {pdfText.pages.length}
-                      </span>
+                pdfText.pages.map((pageText, index) => {
+                  const pageConcepts = aiNotesEnabled
+                    ? aiNotes.filter(n => n.pages && n.pages.includes(index + 1))
+                    : [];
+                  return (
+                    <div 
+                      key={index} 
+                      className="glass-card"
+                      style={{
+                        padding: 20,
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-glass)',
+                        background: 'var(--bg-glass)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: '1px solid var(--border-glass)',
+                        paddingBottom: 6,
+                      }}>
+                        <span style={{ fontSize: 9, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                          PAGE {index + 1} OF {pdfText.pages.length}
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: 16, flexDirection: 'row', flexWrap: 'wrap' }}>
+                        {/* Main Text Content */}
+                        <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+                          <p style={{
+                            fontSize: 13,
+                            lineHeight: '1.6',
+                            color: 'var(--text-secondary)',
+                            margin: 0,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                          }}>
+                            {renderPageText(pageText, index)}
+                          </p>
+                        </div>
+                        
+                        {/* AI Margin Notes */}
+                        {pageConcepts.length > 0 && (
+                          <div style={{
+                            flex: '0 0 200px',
+                            minWidth: 180,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                            paddingLeft: 14,
+                            borderLeft: '1px dashed var(--border-glass)',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                              <Sparkles size={10} style={{ color: 'var(--accent-purple)' }} />
+                              <span style={{ fontSize: 9, fontWeight: 900, color: 'var(--accent-purple)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                AI Margin Notes
+                              </span>
+                            </div>
+                            {pageConcepts.map((note, ni) => (
+                              <div 
+                                key={ni} 
+                                className="animate-fade-in-up"
+                                style={{
+                                  fontSize: 11,
+                                  lineHeight: 1.5,
+                                  padding: 10,
+                                  borderRadius: 'var(--radius-sm)',
+                                  background: 'rgba(168, 85, 247, 0.05)',
+                                  borderLeft: '2px solid var(--accent-purple)',
+                                  color: 'var(--text-secondary)',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                                }}
+                              >
+                                <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: 2 }}>
+                                  {note.concept}
+                                </strong>
+                                {note.explanation}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <p style={{
-                      fontSize: 13,
-                      lineHeight: '1.6',
-                      color: 'var(--text-secondary)',
-                      margin: 0,
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                    }}>
-                      {highlightText(pageText, searchQuery)}
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', fontSize: 12 }}>
                   {pdfText ? "This PDF contains no extractable text content." : "Select a document to begin."}

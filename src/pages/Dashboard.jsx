@@ -75,7 +75,7 @@ const Dashboard = () => {
   }, [isResizing]);
 
   const handleWidthToggle = () => {
-    const wideWidth = Math.floor(window.innerWidth * 0.6);
+    const wideWidth = Math.floor(window.innerWidth * 0.5);
     if (leftPanelWidth < wideWidth) {
       setLeftPanelWidth(wideWidth);
     } else {
@@ -130,7 +130,7 @@ const Dashboard = () => {
     if (leftPanelCollapsed) {
       setLeftPanelCollapsed(false);
       if (viewingPdfName) {
-        setLeftPanelWidth(Math.floor(window.innerWidth * 0.60));
+        setLeftPanelWidth(Math.floor(window.innerWidth * 0.50));
       } else {
         setLeftPanelWidth(380);
       }
@@ -157,18 +157,11 @@ const Dashboard = () => {
 
     // Local commands
     if (isCommand) {
-      const localStudy = { '/reset': true, '/clear': true, '/summary': true, '/help': true };
+      const localStudy = { '/reset': true, '/clear': true, '/help': true };
       const localTest = { '/reset': true, '/clear': true, '/stats': true, '/help': true, '/study': true };
 
       if (cmd === '/reset' || cmd === '/clear') {
         setChatHistory([]); setFlashcards([]); setActiveFile(null); if (overrideText === null) setQuestion(''); return;
-      }
-      if (currentMode === 'study' && cmd === '/summary') {
-        const msg = summary.length > 0
-          ? "**Summary:**\n" + summary.map(p => `- ${p}`).join('\n')
-          : "No summary yet. Upload a document first.";
-        setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: msg }]);
-        if (overrideText === null) setQuestion(''); return;
       }
       if (currentMode === 'study' && cmd === '/help') {
         setChatHistory(prev => [...prev, { role: 'user', text: originalQ }, { role: 'ai', text: "**Study Mode:**\n`/summary` `/files` `/reset`\n\nSwitch to Assessment Mode for `/start` `/10` `/weak` `/stats`." }]);
@@ -214,7 +207,13 @@ const Dashboard = () => {
 
       const aiText = res.data.answer || res.data.message || "Done.";
       const newFlashcards = res.data.flashcards || [];
-      const aiMsg = { role: 'ai', text: aiText, sources: res.data.sources || [], flashcards: newFlashcards };
+      const aiMsg = {
+        role: 'ai',
+        text: aiText,
+        sources: res.data.sources || [],
+        flashcards: newFlashcards,
+        ytVideos: res.data.ytVideos || []
+      };
 
       const nextHistory = [...chatHistory, userMsg, aiMsg];
       setChatHistory(nextHistory);
@@ -259,10 +258,26 @@ const Dashboard = () => {
       }
 
       const summaryPoints = newSummary.map(p => `- ${p}`).join('\n');
+      const baseName = selectedFile.name.replace(/\.[^/.]+$/, "");
+      const videos = res.data.ytVideos || [];
+      
+      let uploadSummaryText = `✅ **${selectedFile.name}** added to this Brain.\n\n${summaryPoints}`;
+      let finalSources = [selectedFile.name];
+
+      if (videos && videos.length > 0) {
+        const links = videos.map(v => `- [${v.title}](${v.url})`).join("\n");
+        uploadSummaryText += `\n\n📺 **Recommended YouTube Reference:**\n${links}`;
+        finalSources = [...finalSources, ...videos.map(v => v.url)];
+      } else {
+        const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(baseName)}`;
+        uploadSummaryText += `\n\n📺 **YouTube Reference:**\n- [Search YouTube for "${baseName}"](${ytUrl})`;
+        finalSources = [...finalSources, ytUrl];
+      }
+
       const aiMsg = {
         role: 'ai',
-        text: `✅ **${selectedFile.name}** added to this Brain.\n\n${summaryPoints}`,
-        sources: [selectedFile.name],
+        text: uploadSummaryText,
+        sources: finalSources,
       };
 
       const nextHistory = [...chatHistory, aiMsg];
@@ -412,7 +427,7 @@ const Dashboard = () => {
                       onFileSelect={(name) => {
                         setViewingPdfName(name);
                         setLeftPanelCollapsed(false);
-                        setLeftPanelWidth(Math.floor(window.innerWidth * 0.60));
+                        setLeftPanelWidth(Math.floor(window.innerWidth * 0.50));
                       }}
                       onFileDelete={async (id, name) => {
                         try {
@@ -593,8 +608,8 @@ const Dashboard = () => {
                   <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
                     {currentMode === 'study' && [
                       { text: "Summarize document", cmd: "/summary" },
-                      { text: "Explain key concepts", cmd: "Explain the key concepts in this document." },
-                      { text: "Generate study guide", cmd: "Generate a study guide from the document." }
+                      { text: "Explain concept (/explain)", cmd: "/explain " },
+                      { text: "Search video tutorials (/yt)", cmd: "/yt " }
                     ].map((chip, i) => (
                       <button
                         key={i}
@@ -621,9 +636,9 @@ const Dashboard = () => {
                     ))}
 
                     {currentMode === 'test' && [
-                      { text: "Generate MCQs", cmd: "/10" },
-                      { text: "Check weak topics", cmd: "/weak" },
-                      { text: "Show statistics", cmd: "/stats" }
+                      { text: "Generate Quiz (/quiz)", cmd: "/quiz" },
+                      { text: "Check weak topics (/weak)", cmd: "/weak" },
+                      { text: "Show statistics (/stats)", cmd: "/stats" }
                     ].map((chip, i) => (
                       <button
                         key={i}
@@ -720,9 +735,13 @@ const Dashboard = () => {
                   onRetryTopic={(topic) => { handleModeSwitch('test'); setQuestion(`/10 ${topic}`); }}
                   onScoreUpdate={handleScoreUpdate}
                   onCitationClick={(src) => {
-                    setViewingPdfName(null);
-                    setLeftPanelCollapsed(false);
-                    setLeftPanelWidth(380);
+                    if (src.startsWith('http://') || src.startsWith('https://')) {
+                      window.open(src, '_blank');
+                    } else {
+                      setViewingPdfName(src);
+                      setLeftPanelCollapsed(false);
+                      setLeftPanelWidth(Math.floor(window.innerWidth * 0.50));
+                    }
                   }}
                 />
 
