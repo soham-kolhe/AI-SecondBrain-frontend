@@ -25,7 +25,8 @@ const FlashcardStack = ({ flashcards = [], onScoreUpdate, onComplete, onCitation
       onScoreUpdate(
         currentCard.topic || 'General',
         isCorrect,
-        currentCard.citation || currentCard.source || 'Unknown'
+        currentCard.citation || currentCard.source || 'Unknown',
+        currentCard._id
       );
     }
 
@@ -114,25 +115,50 @@ const FlashcardStack = ({ flashcards = [], onScoreUpdate, onComplete, onCitation
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            setCurrentIndex(0);
-            setFlipped(false);
-            setResults([]);
-            setSwipeDirection(null);
-          }}
-          style={{
-            padding: '12px 32px', borderRadius: 'var(--radius-xl)',
-            background: 'var(--accent-cyan)', color: '#000',
-            fontSize: 11, fontWeight: 900, textTransform: 'uppercase',
-            letterSpacing: '0.15em', border: 'none', cursor: 'pointer',
-            transition: 'all var(--transition-base)',
-          }}
-          onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
-          onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-        >
-          Try Again
-        </button>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <button
+            onClick={() => {
+              setCurrentIndex(0);
+              setFlipped(false);
+              setResults([]);
+              setSwipeDirection(null);
+            }}
+            style={{
+              padding: '12px 32px', borderRadius: 'var(--radius-xl)',
+              background: 'var(--accent-cyan)', color: '#000',
+              fontSize: 11, fontWeight: 900, textTransform: 'uppercase',
+              letterSpacing: '0.15em', border: 'none', cursor: 'pointer',
+              transition: 'all var(--transition-base)',
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            Try Again
+          </button>
+          {onComplete && (
+            <button
+              onClick={onComplete}
+              style={{
+                padding: '12px 32px', borderRadius: 'var(--radius-xl)',
+                background: 'transparent', border: '1px solid var(--border-glass)',
+                color: 'var(--text-secondary)',
+                fontSize: 11, fontWeight: 900, textTransform: 'uppercase',
+                letterSpacing: '0.15em', cursor: 'pointer',
+                transition: 'all var(--transition-base)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'var(--text-secondary)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'var(--border-glass)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              Finish
+            </button>
+          )}
+        </div>
       </div>
     );
   }

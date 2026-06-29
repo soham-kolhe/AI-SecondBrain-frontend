@@ -38,6 +38,7 @@ const Sidebar = ({
     study: { label: 'Study Mode', icon: <BookOpen size={14} />, color: 'var(--accent-cyan)' },
     test: { label: 'Assessment', icon: <FileText size={14} />, color: 'var(--accent-purple)' },
     research: { label: 'Research', icon: <Search size={14} />, color: 'var(--accent-emerald)' },
+    review: { label: 'Daily Review', icon: <BrainCircuit size={14} />, color: '#f97316' },
   };
 
   useEffect(() => {
@@ -179,7 +180,7 @@ const Sidebar = ({
                   <button
                     key={key}
                     onClick={() => {
-                      if (key === 'test' && !user) { if (onLoginClick) onLoginClick(); return; }
+                      if ((key === 'test' || key === 'review') && !user) { if (onLoginClick) onLoginClick(); return; }
                       onModeSwitch(key);
                     }}
                     style={{
@@ -202,7 +203,7 @@ const Sidebar = ({
                     {isExpanded && (
                       <>
                         <span style={{ fontSize: 13, fontWeight: 700, flex: 1, textAlign: 'left' }}>{m.label}</span>
-                        {key === 'test' && !user && (
+                        {(key === 'test' || key === 'review') && !user && (
                           <span style={{ fontSize: 8, fontWeight: 800, color: '#eab308', textTransform: 'uppercase' }}>Pro</span>
                         )}
                       </>

@@ -458,6 +458,13 @@
   filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.65));
 }
 
+.grid-3d-plane.review {
+  background-image: 
+    linear-gradient(rgba(249, 115, 22, 0.22) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, rgba(249, 115, 22, 0.22) 1.5px, transparent 1.5px);
+  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.65));
+}
+
 @keyframes gridScroll {
   0% {
     background-position: 0 0;
@@ -559,6 +566,39 @@
   bottom: 10%;
   right: 25%;
   animation: floatOrb2 17s ease-in-out infinite alternate;
+}
+
+/* --- Review Mode 3D Background --- */
+.review-3d-bg {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.review-orb-1, .review-orb-2 {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(85px);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.review-orb-1 {
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.45) 0%, transparent 70%);
+  top: 10%;
+  right: 25%;
+  animation: floatOrb1 16s ease-in-out infinite alternate;
+}
+
+.review-orb-2 {
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.35) 0%, transparent 70%);
+  bottom: 15%;
+  left: 20%;
+  animation: floatOrb2 18s ease-in-out infinite alternate;
 }
 
 .gyroscope-3d {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Brain, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Brain, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
+import FlashcardStack from "../components/Chat/FlashcardStack";
 import Navbar from "../components/Navbar/Navbar";
 import Sidebar from "../components/Sidebar/Sidebar";
 import FileBrowser from "../components/Workspace/FileBrowser";
@@ -36,6 +37,9 @@ const Dashboard = () => {
 
   const [question, setQuestion] = useState("");
   const [currentMode, setMode] = useState('study');
+  const [dueReviews, setDueReviews] = useState([]);
+  const [dueReviewsLoading, setDueReviewsLoading] = useState(false);
+  const [initialDueCount, setInitialDueCount] = useState(0);
   const [toast, setToast] = useState(null);
   const [activeFile, setActiveFile] = useState(null);
   const [viewingPdfName, setViewingPdfName] = useState(null);
@@ -88,6 +92,27 @@ const Dashboard = () => {
     setTimeout(() => setToast(null), duration);
   };
 
+  const fetchDueReviews = async () => {
+    if (!user) return;
+    setDueReviewsLoading(true);
+    try {
+      const res = await api.get("/analytics/due-reviews");
+      setDueReviews(res.data || []);
+      setInitialDueCount(res.data ? res.data.length : 0);
+    } catch (err) {
+      console.error("Error fetching due reviews", err);
+      showToast("error", "Failed to fetch due reviews.");
+    } finally {
+      setDueReviewsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentMode === 'review' && user) {
+      fetchDueReviews();
+    }
+  }, [user, currentMode]);
+
   const handleModeSwitch = (newMode) => {
     if (newMode !== currentMode) {
       setMode(newMode);
@@ -96,6 +121,11 @@ const Dashboard = () => {
       setViewingPdfName(null);
       setFileViewMode('all');
       if (newMode === 'test') setFlashcards([]);
+      if (newMode === 'review') {
+        setDueReviews([]);
+        setInitialDueCount(0);
+        fetchDueReviews();
+      }
     }
   };
 
@@ -294,9 +324,13 @@ const Dashboard = () => {
     }
   };
 
-  const handleScoreUpdate = async (topic, isCorrect, source) => {
+  const handleScoreUpdate = async (topic, isCorrect, source, flashcardId) => {
     try {
-      await api.post("/analytics/track-performance", { topic, isCorrect, source });
+      if (flashcardId) {
+        await api.post("/analytics/track-flashcard", { flashcardId, isCorrect });
+      } else {
+        await api.post("/analytics/track-performance", { topic, isCorrect, source });
+      }
       const res = await api.get("/analytics/weak-topics").catch(() => null);
       if (res && res.data) setWeakTopics(res.data);
     } catch (err) { console.error("Score tracking failed", err); }
@@ -332,6 +366,13 @@ const Dashboard = () => {
           textColor: 'var(--accent-emerald)',
           bgGlow: 'rgba(16, 185, 129, 0.1)',
         };
+      case 'review':
+        return {
+          glowColor: 'rgba(249, 115, 22, 0.3)',
+          borderColor: 'rgba(249, 115, 22, 0.6)',
+          textColor: '#f97316',
+          bgGlow: 'rgba(249, 115, 22, 0.1)',
+        };
       default:
         return {
           glowColor: 'rgba(6, 182, 212, 0.3)',
@@ -347,9 +388,111 @@ const Dashboard = () => {
   const hasFiles = uploadedFiles.length > 0;
   const showLeftPanel = !leftPanelCollapsed;
 
+  const renderReviewSession = () => {
+    if (dueReviewsLoading) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          flex: 1, color: 'var(--text-secondary)'
+        }}>
+          <div className="animate-spin" style={{
+            width: 32, height: 32, border: '3px solid var(--border-glass)',
+            borderTopColor: '#f97316', borderRadius: '50%', marginBottom: 16
+          }} />
+          <p style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Retrieving due cards...
+          </p>
+        </div>
+      );
+    }
+
+    if (!user) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          flex: 1, textAlign: 'center', maxWidth: 450, margin: '0 auto'
+        }}>
+          <h3 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', marginBottom: 12 }}>
+            🔒 Access Denied
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24, lineHeight: 1.6 }}>
+            Spaced repetition schedules reviews specifically for your learning profile. Please log in to start daily reviews.
+          </p>
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            style={{
+              padding: '12px 24px', borderRadius: 'var(--radius-md)',
+              background: '#f97316', color: '#fff', fontWeight: 700,
+              fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.1em',
+              border: 'none', cursor: 'pointer'
+            }}
+          >
+            Login / Register
+          </button>
+        </div>
+      );
+    }
+
+    if (dueReviews.length === 0) {
+      return (
+        <div className="animate-fade-in-up" style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          flex: 1, textAlign: 'center', maxWidth: 450, margin: '0 auto'
+        }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24
+          }}>
+            <Sparkles size={32} color="#4ade80" />
+          </div>
+          <h3 style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-primary)', marginBottom: 8 }}>
+            You're All Caught Up!
+          </h3>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            No reviews are currently due. Upload notes and generate a quiz to build new flashcards!
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="animate-fade-in-up" style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        width: '100%', maxWidth: 600, margin: '0 auto', flex: 1, justifyContent: 'center'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+            🧠 Spaced Repetition
+          </h2>
+          <p style={{ fontSize: 11, fontWeight: 800, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.2em' }}>
+            Daily review session ({dueReviews.length} card{dueReviews.length > 1 ? 's' : ''} left)
+          </p>
+        </div>
+
+        <FlashcardStack
+          flashcards={dueReviews}
+          onScoreUpdate={handleScoreUpdate}
+          onCitationClick={(src) => {
+            if (src.startsWith('http://') || src.startsWith('https://')) {
+              window.open(src, '_blank');
+            } else {
+              setViewingPdfName(src);
+              setLeftPanelCollapsed(false);
+              setLeftPanelWidth(Math.floor(window.innerWidth * 0.50));
+            }
+          }}
+          onComplete={() => {
+            setDueReviews([]);
+          }}
+        />
+      </div>
+    );
+  };
+
   // Find active session title for navbar
   const activeSession = chatSessions.find(s => s._id === activeSessionId);
-  const sessionTitle = activeSession?.title;
+  const sessionTitle = activeSession ? activeSession.title : "New Chat";
 
   return (
     <div style={{
@@ -524,7 +667,7 @@ const Dashboard = () => {
             position: 'relative',
           }}>
             {/* Interactive 3D Background */}
-            <div className={`mode-bg-container ${!isEmpty ? "chat-started" : ""}`} style={{
+            <div className={`mode-bg-container ${(!isEmpty || currentMode === 'review') ? "chat-started" : ""}`} style={{
               position: 'absolute',
               inset: 0,
               pointerEvents: 'none',
@@ -552,9 +695,20 @@ const Dashboard = () => {
                   <div className="research-orb-2" />
                 </div>
               )}
+              {currentMode === 'review' && (
+                <div className="review-3d-bg">
+                  <div className="grid-3d-plane review" />
+                  <div className="review-orb-1" />
+                  <div className="review-orb-2" />
+                </div>
+              )}
             </div>
 
-            {isEmpty ? (
+            {currentMode === 'review' ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', position: 'relative', zIndex: 1 }}>
+                {renderReviewSession()}
+              </div>
+            ) : isEmpty ? (
               <div style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
