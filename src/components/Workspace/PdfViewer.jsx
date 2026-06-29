@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, ExternalLink, Maximize2, Minimize2, Search, BookOpen, Sparkles, Quote } from 'lucide-react';
 import api from '../../api/axiosConfig';
+import { useAuth } from '../../context/AuthContext';
 
 const PdfViewer = ({ 
   fileName, 
@@ -11,6 +12,8 @@ const PdfViewer = ({
   onQuoteText, 
   onAskAI 
 }) => {
+  const { user } = useAuth();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pdf'); // 'pdf' or 'text'
   const [pdfText, setPdfText] = useState(null);
@@ -244,7 +247,7 @@ const PdfViewer = ({
           </button>
           
           <a
-            href={`http://localhost:5000/files/view/${encodeURIComponent(fileName)}`}
+            href={`${API_URL}/files/view/${encodeURIComponent(fileName)}?token=${user?.token || ''}`}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -291,7 +294,7 @@ const PdfViewer = ({
               </div>
             )}
             <iframe
-              src={`http://localhost:5000/files/view/${encodeURIComponent(fileName)}`}
+              src={`${API_URL}/files/view/${encodeURIComponent(fileName)}?token=${user?.token || ''}`}
               onLoad={() => setIsLoading(false)}
               style={{
                 width: '100%', height: '100%', border: 'none',
